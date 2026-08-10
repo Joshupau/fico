@@ -10,6 +10,7 @@ type SettingsActions = {
   toggleCompactLayout: () => void
   setDefaultLandingPage: (defaultLandingPage: LandingPage) => void
   setDateFormat: (dateFormat: DateFormat) => void
+  setOnboardingCompleted: (value: boolean) => void
   resetSettings: () => void
 }
 
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   compactLayout: false,
   defaultLandingPage: '/dashboard',
   dateFormat: 'MM/DD/YYYY',
+  onboardingCompleted: false,
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -34,6 +36,7 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleCompactLayout: () => set((state) => ({ compactLayout: !state.compactLayout })),
       setDefaultLandingPage: (defaultLandingPage) => set({ defaultLandingPage }),
       setDateFormat: (dateFormat) => set({ dateFormat }),
+      setOnboardingCompleted: (value) => set({ onboardingCompleted: value }),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {

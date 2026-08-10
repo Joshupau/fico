@@ -27,4 +27,5 @@ export interface SettingsState {
   compactLayout: boolean
   defaultLandingPage: LandingPage
   dateFormat: DateFormat
+  onboardingCompleted: boolean
 }

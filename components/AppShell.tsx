@@ -9,6 +9,8 @@ import { FloatingAgent } from '@/components/floating-agent';
 
 import SignInPage from '@/ionic-pages/SignInPage';
 import SignUpPage from '@/ionic-pages/SignUpPage';
+import OnboardingPage from '@/ionic-pages/OnboardingPage';
+import AuthCallbackPage from '@/ionic-pages/AuthCallbackPage';
 import DashboardPage from '@/ionic-pages/DashboardPage';
 import StatisticsPage from '@/ionic-pages/StatisticsPage';
 import BillsPage from '@/ionic-pages/BillsPage';
@@ -24,7 +26,7 @@ setupIonicReact({
 
 function AppShellInner() {
   const location = useLocation();
-  const hideNav = location.pathname === '/signin' || location.pathname === '/signup';
+  const hideNav = ['/signin', '/signup', '/onboarding', '/auth/callback'].includes(location.pathname);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -33,6 +35,8 @@ function AppShellInner() {
         <IonRouterOutlet id="main-content" style={{ height: '100%', position: 'relative', display: 'block' }}>
           <Route exact path="/signin" component={SignInPage} />
           <Route exact path="/signup" component={SignUpPage} />
+          <Route exact path="/onboarding" component={OnboardingPage} />
+          <Route exact path="/auth/callback" component={AuthCallbackPage} />
           <Route exact path="/dashboard" component={DashboardPage} />
           <Route exact path="/statistics" component={StatisticsPage} />
           <Route exact path="/wallets" component={WalletsPage} />

@@ -14,6 +14,8 @@ export async function generateStaticParams() {
     { all: ['bills'] },
     { all: ['categories'] },
     { all: ['settings'] },
+    { all: ['onboarding'] },
+    { all: ['auth', 'callback'] },
   ]
 }
 
