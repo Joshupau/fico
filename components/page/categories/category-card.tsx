@@ -32,7 +32,7 @@ export function CategoryCard({
 
   return (
     <div
-      className="group relative bg-gradient-to-br from-card to-secondary border border-border rounded-xl p-5 hover:shadow-lg transition-all duration-300 overflow-hidden"
+      className="group relative bg-gradient-to-br from-card to-secondary border border-border rounded-2xl p-5 shadow-ios hover:shadow-ios-lg transition-all duration-300 overflow-hidden"
       style={{
         borderLeft: `4px solid ${color}`,
       }}
@@ -88,7 +88,7 @@ export function CategoryCard({
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowMenu(false)}
                 />
-                <div className="absolute right-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-xl py-1 z-50 animate-in fade-in zoom-in duration-200">
+                <div className="absolute right-0 mt-2 w-40 bg-card border border-border rounded-xl shadow-ios-lg py-1 z-50 animate-in fade-in zoom-in duration-200">
                   <button
                     onClick={() => {
                       onEdit?.(id)
@@ -118,7 +118,7 @@ export function CategoryCard({
       </div>
 
       {status === 'archived' && (
-        <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center z-20">
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] rounded-2xl flex items-center justify-center z-20">
           <Badge variant="secondary" className="bg-secondary/80">Archived</Badge>
         </div>
       )}

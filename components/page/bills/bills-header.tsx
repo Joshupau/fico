@@ -18,11 +18,11 @@ export function BillsHeader({ isRefreshing, onRefresh, onCreate }: BillsHeaderPr
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button variant="outline" className="gap-2" onClick={onRefresh} disabled={isRefreshing}>
+            <Button variant="outline" className="gap-2 rounded-full" onClick={onRefresh} disabled={isRefreshing}>
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button className="gap-2" onClick={onCreate}>
+            <Button className="gap-2 rounded-full" onClick={onCreate}>
               <Plus className="w-4 h-4" />
               New Entry
             </Button>

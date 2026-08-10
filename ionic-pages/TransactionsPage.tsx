@@ -11,8 +11,8 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
 import { IonContent, IonPage } from '@ionic/react'
-import { DashboardHeader } from '@/components/page/dashboard/dashboard-header'
 import { TransactionStats } from '@/components/page/transaction/transaction-stats'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { FilterState, TransactionFilters } from '@/components/page/transaction/transaction-filter'
 import { TransactionItem, TransactionList } from '@/components/page/transaction/transaction-list'
 import { useDeleteTransaction, useListTransactions, useTransactionsSummary, useUpdateTransaction } from '@/queries/user/transaction/transaction'
@@ -231,15 +231,15 @@ export function TransactionsPage() {
                 <div className="flex items-center gap-3">
                   {/* Desktop / larger screens: show separate buttons */}
                   <div className="hidden sm:flex items-center gap-3">
-                    <Button variant="outline" className="gap-2 flex-shrink-0" size="sm">
+                    <Button variant="outline" className="gap-2 flex-shrink-0 rounded-full" size="sm">
                       <Download className="w-4 h-4" />
                       <span className="hidden sm:inline">Export</span>
                     </Button>
-                    <Button variant="outline" className="gap-2 flex-shrink-0" size="sm" onClick={() => setShowImportModal(true)}>
+                    <Button variant="outline" className="gap-2 flex-shrink-0 rounded-full" size="sm" onClick={() => setShowImportModal(true)}>
                       <Download className="w-4 h-4" />
                       <span className="hidden sm:inline">Import</span>
                     </Button>
-                    <Button className="gap-2 flex-shrink-0" onClick={() => setShowCreateModal(true)}>
+                    <Button className="gap-2 flex-shrink-0 rounded-full" onClick={() => setShowCreateModal(true)}>
                       <Plus className="w-4 h-4" />
                       <span className="hidden sm:inline">New Transaction</span>
                     </Button>
@@ -281,26 +281,39 @@ export function TransactionsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-6">
               {/* Filters Sidebar */}
               <div className="lg:col-span-1">
-                  <div className="space-y-4">
-                  {/* Mobile Filter Toggle */}
+                <div className="space-y-4">
+                  {/* Mobile: opens filters in a sheet */}
                   <div className="lg:hidden">
                     <Button
                       variant="outline"
-                      className="w-full gap-2 justify-center"
-                      onClick={() => setShowFilters(!showFilters)}
+                      className="w-full gap-2 justify-center rounded-full"
+                      onClick={() => setShowFilters(true)}
                     >
                       <Filter className="w-4 h-4" />
-                      {showFilters ? 'Hide' : 'Show'} Filters
+                      Filters
                     </Button>
                   </div>
 
-                  {/* Filters Card */}
-                  <div className={`${showFilters ? 'block' : 'hidden'} lg:block bg-card border border-border rounded-lg p-6`}>
+                  {/* Desktop: inline filters card */}
+                  <div className="hidden lg:block bg-card border border-border rounded-2xl p-6 shadow-ios">
                     <h2 className="text-lg font-semibold text-foreground mb-6">Filters</h2>
                     <TransactionFilters onFilterChange={setFilters} wallets={wallets} />
                   </div>
                 </div>
               </div>
+
+              {/* Mobile: filters sheet */}
+              <Sheet open={showFilters} onOpenChange={setShowFilters}>
+                <SheetContent className="sm:max-w-md">
+                  <SheetHeader>
+                    <SheetTitle>Filters</SheetTitle>
+                    <SheetDescription>Narrow down transactions by type, status, date, wallet, or tag.</SheetDescription>
+                  </SheetHeader>
+                  <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+                    <TransactionFilters onFilterChange={setFilters} wallets={wallets} />
+                  </div>
+                </SheetContent>
+              </Sheet>
 
               {/* Transaction List */}
               <div className="lg:col-span-3">

@@ -4,7 +4,7 @@ import { IonContent, IonPage } from '@ionic/react'
 export default function OnboardingIonicPage() {
   return (
     <IonPage>
-      <IonContent fullscreen scrollY={false}>
+      <IonContent fullscreen>
         <OnboardingPage />
       </IonContent>
     </IonPage>

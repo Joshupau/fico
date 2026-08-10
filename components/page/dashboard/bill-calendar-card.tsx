@@ -202,7 +202,7 @@ export function BillCalendarCard() {
   }, [])
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex flex-col h-full">
+    <div className="bg-card border border-border rounded-2xl p-5 shadow-ios flex flex-col h-full">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="font-semibold text-foreground">Bill Calendar</h3>

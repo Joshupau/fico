@@ -1,4 +1,4 @@
-# FroFinX - Financial Management App
+# Fico - Financial Management App
 
 A hybrid mobile financial management application built with Next.js, Ionic React, and Capacitor.
 
@@ -32,7 +32,7 @@ A hybrid mobile financial management application built with Next.js, Ionic React
 ## 📱 Project Structure
 
 ```
-frofinx/
+fico/
 ├── app/                      # Next.js app directory
 │   ├── layout.tsx           # Root layout with Ionic integration
 │   ├── page.tsx             # Root page (redirects to signin)

@@ -124,7 +124,7 @@ export function BillsList({
         return (
           <Card
             key={bill.id}
-            className={`py-0 border transition-all duration-200 hover:shadow-md ${cardTone}`}
+            className={`py-0 border transition-all duration-200 hover:shadow-ios ${cardTone}`}
           >
             <CardContent className="p-4 sm:p-5">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -206,12 +206,12 @@ export function BillsList({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(bill)} className="gap-2">
+                        <DropdownMenuItem onClick={() => requestAnimationFrame(() => onEdit(bill))} className="gap-2">
                           <Pencil className="w-4 h-4" />
                           <span>Edit Details</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => onDelete(bill)}
+                          onClick={() => requestAnimationFrame(() => onDelete(bill))}
                           className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
                         >
                           <Trash2 className="w-4 h-4" />

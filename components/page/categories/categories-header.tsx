@@ -22,7 +22,7 @@ export function CategoriesHeader({
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Categories</h1>
           <p className="text-muted-foreground">Manage your spending and income categories.</p>
         </div>
-        <Button onClick={onAddCategory} className="flex items-center gap-2">
+        <Button onClick={onAddCategory} className="flex items-center gap-2 rounded-full">
           <Plus className="w-4 h-4" />
           Add Category
         </Button>
@@ -33,12 +33,12 @@ export function CategoriesHeader({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search categories..."
-            className="pl-9 bg-card border-border"
+            className="pl-9 bg-card border-border rounded-xl"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" className="flex items-center gap-2 rounded-full">
           <Filter className="w-4 h-4" />
           Filter
         </Button>

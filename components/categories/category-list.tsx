@@ -84,7 +84,7 @@ export default function CategoryList() {
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xl font-bold text-foreground">All Categories</h2>
-        <div className="flex items-center gap-2 bg-secondary/50 p-1 rounded-lg">
+        <div className="flex items-center gap-2 bg-secondary/50 p-1 rounded-xl">
           <Button
             size="icon"
             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -127,7 +127,7 @@ export default function CategoryList() {
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
                     style={{ backgroundColor: c.color }}
                   >
                     {c.icon || <Trash2 className="w-5 h-5" />}
@@ -162,7 +162,7 @@ export default function CategoryList() {
       ) : (
         <div className="px-6 py-12 bg-card/30 border border-dashed border-border rounded-2xl text-center">
           <p className="text-muted-foreground mb-6">No categories found in your account</p>
-          <Button size="lg" className="rounded-xl px-8" onClick={() => setOpen(true)}>
+          <Button size="lg" className="rounded-full px-8" onClick={() => setOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Create First Category
           </Button>

@@ -4,19 +4,13 @@ import { Input } from '@/components/ui/input';
 import { useImportTransactions } from '@/queries/user/transaction/transaction';
 import { useListWallets } from '@/queries/user/wallet/wallets';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet';
 
 interface TransactionImportModalProps {
   open: boolean;
@@ -29,7 +23,7 @@ export function TransactionImportModal({ open, onClose, onSuccess }: Transaction
   const [loading, setLoading] = useState(false);
   const [walletId, setWalletId] = useState<string>('');
   const { mutate, isSuccess, isError, error, reset } = useImportTransactions();
-  const { data: walletsData, isLoading: walletsLoading } = useListWallets();
+  const { data: walletsData } = useListWallets();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -53,25 +47,26 @@ export function TransactionImportModal({ open, onClose, onSuccess }: Transaction
       },
     });
   };
-  console.log(walletsData);
 
   return (
-     <Dialog open={open} onOpenChange={val => { if (!val) { reset(); onClose(); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Import Transactions</DialogTitle>
-          </DialogHeader>
-          {/* Wallet Select Dropdown */}
-          <div className="mb-4">
-            <label htmlFor="walletId" className="text-sm font-medium text-foreground block">
-              Wallet *
+    <Sheet open={open} onOpenChange={(val) => { if (!val) { reset(); onClose(); } }}>
+      <SheetContent className="sm:max-w-md" showCloseButton={false}>
+        <SheetHeader>
+          <SheetTitle>Import Transactions</SheetTitle>
+          <SheetDescription>Upload a CSV or XLSX export into one of your wallets.</SheetDescription>
+        </SheetHeader>
+
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 min-h-0">
+          <div className="space-y-2">
+            <label htmlFor="walletId" className="text-sm font-semibold text-foreground block">
+              Wallet <span className="text-destructive">*</span>
             </label>
             <select
               id="walletId"
               name="walletId"
               value={walletId}
               onChange={(e) => setWalletId(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+              className="w-full px-3 py-2 border border-border rounded-xl bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
             >
               <option value="">Select a wallet</option>
               {walletsData?.data && Array.isArray(walletsData.data.items) && walletsData.data.items.map((wallet: any) => (
@@ -81,16 +76,27 @@ export function TransactionImportModal({ open, onClose, onSuccess }: Transaction
               ))}
             </select>
           </div>
-          <Input type="file" accept=".csv,.xlsx" onChange={handleFileChange} />
-          <DialogFooter>
-            <Button onClick={handleImport} disabled={!file || !walletId || loading}>
-              {loading ? 'Importing...' : 'Import'}
-            </Button>
-            <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button>
-          </DialogFooter>
-          {isError && <div className="text-red-500 mt-2">{error?.message || 'Import failed.'}</div>}
-          {isSuccess && <div className="text-green-500 mt-2">Import successful!</div>}
-        </DialogContent>
-      </Dialog>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground block">
+              File <span className="text-destructive">*</span>
+            </label>
+            <Input type="file" accept=".csv,.xlsx" onChange={handleFileChange} />
+          </div>
+
+          {isError && <p className="text-sm text-destructive">{error?.message || 'Import failed.'}</p>}
+          {isSuccess && <p className="text-sm text-success">Import successful!</p>}
+        </div>
+
+        <SheetFooter className="pt-2">
+          <Button variant="outline" onClick={() => { reset(); onClose(); }} disabled={loading}>
+            Cancel
+          </Button>
+          <Button onClick={handleImport} disabled={!file || !walletId || loading}>
+            {loading ? 'Importing...' : 'Import'}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

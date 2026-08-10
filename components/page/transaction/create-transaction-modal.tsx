@@ -9,6 +9,8 @@ import {
   Sheet,
   SheetContent,
   SheetFooter,
+  SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet'
 import { useCreateTransaction, useUpdateTransaction } from '@/queries/user/transaction/transaction'
 import { useListWallets } from '@/queries/user/wallet/wallets'
@@ -115,7 +117,10 @@ function TransactionFormBody({
   return (
     <>
       <div className="flex items-center justify-between p-6 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground">{isEdit ? 'Edit Transaction' : title}</h2>
+        <SheetTitle className="text-lg font-semibold text-foreground">{isEdit ? 'Edit Transaction' : title}</SheetTitle>
+        <SheetDescription className="sr-only">
+          {isEdit ? 'Update the details for this transaction.' : 'Fill out the form to record a new transaction.'}
+        </SheetDescription>
         <button
           onClick={onClose}
           className="text-muted-foreground hover:text-foreground transition-colors"
@@ -460,57 +465,30 @@ export function CreateTransactionModal({
 
   if (!open) return null
 
-  if (isEdit) {
-    return (
-      <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-        <SheetContent className="p-0 sm:max-w-2xl" showCloseButton={false}>
-          <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card sm:rounded-2xl sm:border sm:border-border sm:shadow-lg">
-            <TransactionFormBody
-              formData={formData}
-              setFormData={setFormData}
-              includeServiceFee={includeServiceFee}
-              setIncludeServiceFee={setIncludeServiceFee}
-              serviceFee={serviceFee}
-              setServiceFee={setServiceFee}
-              wallets={wallets}
-              categories={categories}
-              currency={currency}
-              hideAmountsOnOpen={false}
-              onClose={onClose}
-              handleSubmit={handleSubmit}
-              isPending={isPending}
-              isUpdating={isUpdating}
-              isEdit
-              title={title}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-    )
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-card border border-border rounded-lg shadow-lg max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <TransactionFormBody
-          formData={formData}
-          setFormData={setFormData}
-          includeServiceFee={includeServiceFee}
-          setIncludeServiceFee={setIncludeServiceFee}
-          serviceFee={serviceFee}
-          setServiceFee={setServiceFee}
-          wallets={wallets}
-          categories={categories}
-          currency={currency}
-          hideAmountsOnOpen={false}
-          onClose={onClose}
-          handleSubmit={handleSubmit}
-          isPending={isPending}
-          isUpdating={isUpdating}
-          isEdit={false}
-          title={title}
-        />
-      </div>
-    </div>
+    <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <SheetContent className="p-0 sm:max-w-2xl" showCloseButton={false}>
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card md:rounded-2xl md:border md:border-border md:shadow-ios-lg">
+          <TransactionFormBody
+            formData={formData}
+            setFormData={setFormData}
+            includeServiceFee={includeServiceFee}
+            setIncludeServiceFee={setIncludeServiceFee}
+            serviceFee={serviceFee}
+            setServiceFee={setServiceFee}
+            wallets={wallets}
+            categories={categories}
+            currency={currency}
+            hideAmountsOnOpen={false}
+            onClose={onClose}
+            handleSubmit={handleSubmit}
+            isPending={isPending}
+            isUpdating={isUpdating}
+            isEdit={isEdit}
+            title={title}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }

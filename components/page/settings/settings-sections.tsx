@@ -46,7 +46,7 @@ function SettingCardShell({
   children: ReactNode
 }) {
   return (
-    <Card className="border-border/70 bg-card/90 shadow-sm backdrop-blur-sm">
+    <Card className="border-border/70 bg-card/90 shadow-ios backdrop-blur-sm">
       <CardHeader>
         <CardTitle className="text-lg">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
@@ -80,7 +80,7 @@ function SettingsHero() {
   const previewBalance = formatCurrencyPreview(settings.currency, settings.hideAmountsOnOpen)
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-card via-background to-secondary/40 p-6 shadow-sm">
+    <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-card via-background to-secondary/40 p-6 shadow-ios">
       <div className="absolute inset-y-0 right-0 hidden w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_55%)] lg:block" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-3">
@@ -97,7 +97,7 @@ function SettingsHero() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
-          <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-ios">
             <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Primary currency</p>
             <div className="mt-2 flex items-center gap-2 text-lg font-semibold">
               <Wallet className="size-5 text-primary" />
@@ -105,7 +105,7 @@ function SettingsHero() {
               <span className="text-sm text-muted-foreground">{selectedCurrency.symbol}</span>
             </div>
           </div>
-          <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-ios">
             <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Sample balance</p>
             <div className="mt-2 flex items-center gap-2 text-lg font-semibold">
               {settings.hideAmountsOnOpen ? <EyeOff className="size-5 text-muted-foreground" /> : <Eye className="size-5 text-primary" />}
@@ -240,7 +240,7 @@ function OfflineReadinessSection() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'frofinx-settings-backup.json'
+    link.download = 'fico-settings-backup.json'
     link.click()
     URL.revokeObjectURL(url)
   }

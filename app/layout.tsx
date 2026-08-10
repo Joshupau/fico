@@ -21,44 +21,58 @@ import DevErrorOverlay from '@/components/DevErrorOverlay'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | FroFinX',
-    default: 'FroFinX - Money Management Made Simple',
+    template: '%s | Fico',
+    default: 'Fico - Money Management Made Simple',
   },
-  description: 'FroFinX is a comprehensive financial management application that helps you track transactions, manage budgets, and take control of your finances.',
+  description: 'Fico is a comprehensive financial management application that helps you track transactions, manage budgets, and take control of your finances.',
   keywords: ['finance', 'budgeting', 'money-tracking', 'financial-management', 'personal-finance', 'wallet'],
-  authors: [{ name: 'FroFinX Team' }],
+  authors: [{ name: 'Fico Team' }],
   icons: {
-    icon: '/FroFinXLogoTrans.png',
-    shortcut: '/FroFinXLogoTrans.png',
-    apple: '/FroFinXLogoTrans.png',
+    icon: '/FicoLogoTrans1.png',
+    shortcut: '/FicoLogoTrans1.png',
+    apple: '/FicoLogoTrans1.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Fico',
+  },
+  other: {
+    // Next only emits the unprefixed `mobile-web-app-capable` tag for
+    // appleWebApp.capable; iOS Safari's standalone-launch detection still
+    // needs the legacy prefixed tag to reliably skip the browser chrome.
+    'apple-mobile-web-app-capable': 'yes',
   },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    title: 'FroFinX - Money Management Made Simple',
-    description: 'FroFinX is a comprehensive financial management application that helps you track transactions, manage budgets, and take control of your finances.',
-    siteName: 'FroFinX',
+    title: 'Fico - Money Management Made Simple',
+    description: 'Fico is a comprehensive financial management application that helps you track transactions, manage budgets, and take control of your finances.',
+    siteName: 'Fico',
     images: [
       {
-        url: '/FroFinXLogoTrans.png',
+        url: '/FicoLogoTrans1.png',
         width: 1200,
         height: 630,
-        alt: 'FroFinX Logo',
+        alt: 'Fico Logo',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FroFinX - Money Management Made Simple',
-    description: 'FroFinX is a comprehensive financial management application that helps you track transactions, manage budgets, and take control of your finances.',
-    images: ['/FroFinXLogoTrans.png'],
+    title: 'Fico - Money Management Made Simple',
+    description: 'Fico is a comprehensive financial management application that helps you track transactions, manage budgets, and take control of your finances.',
+    images: ['/FicoLogoTrans1.png'],
   },
 }
 
 export const viewport: Viewport = {
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   width: 'device-width',
   viewportFit: 'cover',
+  themeColor: '#0066CC',
 }
 
 export default function RootLayout({
@@ -73,15 +87,6 @@ export default function RootLayout({
     // This tells React to ignore attribute mismatches here.
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        {/* Server-rendered initial loader — will be removed by `InitialLoader` on client mount */}
-        <div id="app-loading" style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', zIndex: 9999 }}>
-          <svg width="56" height="56" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-            <circle cx="25" cy="25" r="20" stroke="#e5e7eb" strokeWidth="6" fill="none" />
-            <path d="M45 25a20 20 0 0 1-20 20" stroke="#111827" strokeWidth="6" strokeLinecap="round" fill="none">
-              <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite" />
-            </path>
-          </svg>
-        </div>
         <ThemeInitializer />
         {process.env.NODE_ENV === 'development' && (
           <>

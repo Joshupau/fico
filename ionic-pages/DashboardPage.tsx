@@ -44,18 +44,18 @@ export default function DashboardPage() {
         {/* Header */}
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           {/* Welcome Section */}
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-              <p className="text-muted-foreground">Welcome back! Here's your financial overview.</p>
+          <div className="mb-6 sm:mb-8 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">Dashboard</h1>
+              <p className="text-sm sm:text-base text-muted-foreground truncate">Welcome back! Here's your financial overview.</p>
             </div>
 
             {/* Combined Filter Popover */}
             <Popover>
               <PopoverTrigger asChild>
-                <button className="px-4 py-2 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:border-foreground/50 transition-colors cursor-pointer flex items-center gap-2">
+                <button className="shrink-0 px-4 py-2 rounded-full bg-card border border-border text-foreground text-sm font-medium hover:border-foreground/50 transition-colors cursor-pointer flex items-center gap-2">
                   <span className="flex items-center gap-2">
                     <span className="text-muted-foreground">Filters</span>
                     {/* <span className="font-semibold">{periodOptions.find(o => o.value === period)?.label}</span> */}

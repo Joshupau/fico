@@ -1,12 +1,27 @@
 'use client'
 
 import { useState } from 'react'
+import { useHistory } from 'react-router-dom'
 import { Moon, Sun, Search, Bell, User, MoreVertical, Home, TrendingUp, BarChart3 } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useAuthStore } from '@/store/auth-store'
+import { useLogout } from '@/queries/auth/auth'
 
 export function DashboardHeader() {
   const { theme, setTheme } = useTheme()
+  const history = useHistory()
+  const clearAuth = useAuthStore((state) => state.clearAuth)
+  const { mutate: logout } = useLogout()
   const [showUserMenu, setShowUserMenu] = useState(false)
+
+  const handleSignOut = () => {
+    logout(undefined, {
+      onSettled: () => {
+        clearAuth()
+        history.push('/signin')
+      },
+    })
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border transition-colors duration-300">
@@ -18,7 +33,7 @@ export function DashboardHeader() {
               <span className="text-primary-foreground font-bold">F</span>
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg font-bold text-foreground">FroFinX</h1>
+              <h1 className="text-lg font-bold text-foreground">Fico</h1>
             </div>
           </div>
 
@@ -75,7 +90,7 @@ export function DashboardHeader() {
                     Settings
                   </button>
                   <hr className="my-1 border-border" />
-                  <button className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-secondary transition-colors">
+                  <button onClick={handleSignOut} className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-secondary transition-colors">
                     Sign out
                   </button>
                 </div>

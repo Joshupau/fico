@@ -8,6 +8,8 @@ import {
   Sheet,
   SheetContent,
   SheetFooter,
+  SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet'
 import {
   Select,
@@ -165,17 +167,17 @@ export function BillModal({ open, onClose, onSuccess, bill }: BillModalProps) {
   return (
     <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <SheetContent className="p-0 sm:max-w-xl" showCloseButton={false}>
-      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl">
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card md:rounded-2xl md:border md:border-border md:shadow-ios-lg">
         <div className="flex shrink-0 items-center justify-between border-b border-border bg-gradient-to-r from-primary/5 to-transparent p-6">
           <div>
-            <h2 className="text-xl font-bold text-foreground">
+            <SheetTitle className="text-xl font-bold text-foreground">
               {isEdit ? (formData.type === 'income' ? 'Edit Income' : 'Edit Bill') : (formData.type === 'income' ? 'New Income' : 'New Bill')}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            </SheetTitle>
+            <SheetDescription className="text-sm text-muted-foreground mt-1">
               {isEdit
                 ? (formData.type === 'income' ? 'Update your recurring income details.' : 'Update your recurring bill details.')
                 : (formData.type === 'income' ? 'Track an expected or recurring income entry.' : 'Set up a new recurring or one-time payment.')}
-            </p>
+            </SheetDescription>
           </div>
           <button
             onClick={onClose}

@@ -76,12 +76,12 @@ export function RecentTransactions() {
   }, [transactionResponse])
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden transition-all duration-300">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-ios">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <h2 className="text-lg font-bold text-foreground">Recent Transactions</h2>
-        <Link to="/transactions" className="text-sm font-semibold text-accent hover:underline">
-          VIEW ALL
+        <Link to="/transactions" className="text-sm font-semibold text-primary hover:underline">
+          View all
         </Link>
       </div>
 
@@ -90,22 +90,22 @@ export function RecentTransactions() {
         {isLoading ? (
           <div className="space-y-2 p-4">
             {[...Array(5)].map((_, index) => (
-              <div key={index} className="h-16 bg-secondary rounded animate-pulse" />
+              <div key={index} className="h-16 bg-secondary rounded-xl animate-pulse" />
             ))}
           </div>
         ) : transactions.length > 0 ? (
           transactions.map((transaction) => (
             <div
               key={transaction.id}
-              className="flex items-center justify-between p-4 hover:bg-secondary transition-colors group"
+              className="flex items-center justify-between p-4 hover:bg-secondary/60 transition-colors group"
             >
               {/* Left: Icon & Details */}
-              <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
                 <div
-                  className={`p-2.5 rounded-lg transition-colors ${
+                  className={`p-2.5 rounded-full transition-colors shrink-0 ${
                     transaction.type === 'income'
-                      ? 'bg-success/20 text-success dark:bg-success/30'
-                      : 'bg-warning/20 text-warning dark:bg-warning/30'
+                      ? 'bg-success/15 text-success'
+                      : 'bg-warning/15 text-warning'
                   }`}
                 >
                   {transaction.type === 'income' ? (
@@ -136,8 +136,8 @@ export function RecentTransactions() {
                   <p
                     className={`text-xs px-2 py-0.5 rounded-full inline-block mt-1 ${
                       transaction.status === 'completed'
-                        ? 'bg-success/20 text-success dark:bg-success/30'
-                        : 'bg-warning/20 text-warning dark:bg-warning/30'
+                        ? 'bg-success/15 text-success'
+                        : 'bg-warning/15 text-warning'
                     }`}
                   >
                     {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}

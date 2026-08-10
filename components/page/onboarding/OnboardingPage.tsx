@@ -80,22 +80,21 @@ export function OnboardingPage() {
   const idle = 'border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/60 hover:border-gray-300 dark:hover:border-zinc-600'
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] dark:bg-zinc-950 flex flex-col">
+    <div className="min-h-full bg-[#f5f5f5] dark:bg-zinc-950 flex flex-col">
 
       {/* ── Thin gradient progress bar ─────────────────────────────────── */}
-      <div className="h-1 w-full bg-gray-200 dark:bg-zinc-800 flex-shrink-0">
+      {/* sticky (not a separate overflow-y-auto region) so it stays visible
+          while IonContent handles all scrolling natively — nesting our own
+          scroll container inside IonContent breaks scroll gestures on iOS. */}
+      <div className="h-1 w-full bg-gray-200 dark:bg-zinc-800 sticky top-0 z-10">
         <div
           className="h-full bg-gradient-to-r from-violet-500 via-indigo-500 to-sky-500 transition-all duration-500 ease-out rounded-r-full"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      {/* ── Scrollable body ────────────────────────────────────────────── */}
-      {/* overflow-y-auto must be on the outer wrapper; justify-center goes on
-          the inner min-h-full div so short steps are centred while tall steps
-          (e.g. the 10-currency grid) overflow and scroll normally. */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="min-h-full flex flex-col items-center justify-center px-5 py-10">
+      {/* ── Body ───────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center justify-center px-5 py-10">
         <div className="w-full max-w-sm">
 
           {/* ═══════════════════════ STEP 0 – WELCOME ══════════════════ */}
@@ -103,7 +102,7 @@ export function OnboardingPage() {
             <div className="flex flex-col items-center text-center animate-fade-in">
               <div className="relative mb-7">
                 <div className="w-24 h-24 rounded-[28px] bg-white dark:bg-zinc-800 shadow-xl flex items-center justify-center">
-                  <Image src="/FroFinXLogoTrans.png" alt="FroFinX" width={72} height={72} className="object-contain" />
+                  <Image src="/FicoLogoTrans1.png" alt="Fico" width={72} height={72} className="object-contain" />
                 </div>
                 <div className="absolute -bottom-1.5 -right-1.5 w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
                   <Sparkles className="w-4 h-4 text-white" />
@@ -114,7 +113,7 @@ export function OnboardingPage() {
                 Welcome, {username}!
               </h1>
               <p className="text-gray-500 dark:text-zinc-400 mt-3 text-[15px] leading-relaxed max-w-[270px]">
-                Let's personalise FroFinX so it works exactly the way you want it to.
+                Let's personalise Fico so it works exactly the way you want it to.
               </p>
               <p className="text-gray-400 dark:text-zinc-600 mt-2 text-xs">Takes less than a minute</p>
 
@@ -267,7 +266,7 @@ export function OnboardingPage() {
               <StepHeader
                 step={4} total={TOTAL_STEPS}
                 title="A few final touches"
-                subtitle="These make FroFinX feel completely yours."
+                subtitle="These make Fico feel completely yours."
               />
 
               {/* Date format */}
@@ -365,7 +364,7 @@ export function OnboardingPage() {
                 onClick={finish}
                 className="mt-6 w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-4 font-semibold text-[16px] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg"
               >
-                Go to FroFinX →
+                Go to Fico →
               </button>
               <button
                 onClick={back}
@@ -376,7 +375,6 @@ export function OnboardingPage() {
             </div>
           )}
 
-        </div>
         </div>
       </div>
     </div>

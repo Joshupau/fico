@@ -64,7 +64,7 @@ export function BudgetCard({
   }
 
   return (
-    <div className="group relative bg-card border border-border rounded-2xl p-5 hover:shadow-md transition-all duration-300">
+    <div className="group relative bg-card border border-border rounded-2xl p-5 shadow-ios hover:shadow-ios-lg transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div 

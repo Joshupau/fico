@@ -24,7 +24,7 @@ export function BudgetsHeader({
           </h1>
           <p className="text-muted-foreground mt-1">Plan, track, and stay within your financial goals.</p>
         </div>
-        <Button onClick={onAddBudget} className="flex items-center gap-2 h-11 px-5 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+        <Button onClick={onAddBudget} className="flex items-center gap-2 h-11 px-5 rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
           <Plus className="w-5 h-5" />
           Create New Budget
         </Button>

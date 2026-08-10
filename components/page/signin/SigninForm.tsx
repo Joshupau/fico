@@ -56,15 +56,15 @@ export function SigninForm() {
       <div className="flex flex-col items-center mb-8">
         <div className="w-[72px] h-[72px] rounded-[20px] overflow-hidden mb-5 shadow-sm bg-white dark:bg-zinc-800 flex items-center justify-center">
           <Image
-            src="/FroFinXLogoTrans.png"
-            alt="FroFinX"
+            src="/FicoLogoTrans1.png"
+            alt="Fico"
             width={60}
             height={60}
             className="w-[60px] h-[60px] object-contain"
           />
         </div>
         <h1 className="text-[28px] font-bold text-gray-900 dark:text-white leading-tight">Log in or sign up</h1>
-        <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1.5">Manage your finances with FroFinX</p>
+        <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1.5">Manage your finances with Fico</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -148,7 +148,7 @@ export function SigninForm() {
 
       {/* Sign up link */}
       <p className="text-center text-[13px] text-gray-500 dark:text-zinc-400 mt-6">
-        New to FroFinX?{' '}
+        New to Fico?{' '}
         <Link
           to="/signup"
           className="text-gray-900 dark:text-white font-semibold hover:underline"

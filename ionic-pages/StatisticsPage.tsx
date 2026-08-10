@@ -60,7 +60,7 @@ export default function StatisticsPage() {
     <IonPage>
       <IonContent className="bg-background text-foreground transition-colors duration-300">
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <section className="mb-8 rounded-3xl border border-border bg-gradient-to-br from-card via-card to-secondary/40 p-5 sm:p-7 shadow-sm">
+          <section className="mb-8 rounded-3xl border border-border bg-gradient-to-br from-card via-card to-secondary/40 p-5 sm:p-7 shadow-ios">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
               <div className="space-y-3 lg:self-start">
                 <Button variant="outline" size="sm" onClick={() => history.push('/dashboard')} className="gap-2 rounded-full">
@@ -77,19 +77,19 @@ export default function StatisticsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 lg:self-start">
-                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-ios">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Total Amount</p>
                   <p className="mt-2 break-words text-base font-black leading-tight text-foreground sm:text-lg">{formatMoney(categorySummary.totalAmount, currency, hideAmountsOnOpen)}</p>
                 </div>
-                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-ios">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Transactions</p>
                   <p className="mt-2 break-words text-base font-black leading-tight text-foreground sm:text-lg">{categorySummary.transactionCount}</p>
                 </div>
-                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-ios">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Top Category</p>
                   <p className="mt-2 break-words text-base font-black leading-tight text-foreground sm:text-lg">{categorySummary.topCategoryName}</p>
                 </div>
-                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-2xl border border-border bg-background/70 px-4 py-3 shadow-ios">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Top Share</p>
                   <p className="mt-2 break-words text-base font-black leading-tight text-foreground sm:text-lg">{formatMoney(categorySummary.topCategoryAmount, currency, hideAmountsOnOpen)}</p>
                 </div>
@@ -105,7 +105,7 @@ export default function StatisticsPage() {
 
             <Popover>
               <PopoverTrigger asChild>
-                <button className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-foreground/50">
+                <button className="flex cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-foreground/50">
                   <span className="text-muted-foreground">Filters</span>
                   {walletId && (
                     <>

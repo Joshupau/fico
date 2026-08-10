@@ -155,7 +155,7 @@ export function WalletsPage() {
                   <h1 className="text-4xl font-bold text-foreground">My Wallets</h1>
                   <p className="text-muted-foreground mt-2">Manage all your accounts and payment methods</p>
                 </div>
-                <Button className="gap-2" onClick={() => setShowCreateModal(true)}>
+                <Button className="gap-2 rounded-full" onClick={() => setShowCreateModal(true)}>
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">New Wallet</span>
                   <span className="sm:hidden">Add</span>
@@ -178,20 +178,20 @@ export function WalletsPage() {
 
           {/* Filters Section */}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-            <div className="bg-card border border-border rounded-lg p-4">
+            <div className="bg-card border border-border rounded-2xl p-4 shadow-ios">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-muted-foreground" />
                   <p className="text-sm font-medium text-foreground">Filter by Type</p>
                 </div>
               </div>
-              
+
               <div className="flex flex-wrap gap-2">
                 {walletTypes.map((type) => (
                   <button
                     key={type.value}
                     onClick={() => setFilterType(type.value)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                       filterType === type.value
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-secondary text-foreground hover:bg-secondary/80'
@@ -228,7 +228,7 @@ export function WalletsPage() {
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, index) => (
-                  <div key={index} className="h-72 rounded-xl border border-border bg-card animate-pulse" />
+                  <div key={index} className="h-72 rounded-2xl border border-border bg-card animate-pulse" />
                 ))}
               </div>
             ) : filteredWallets.length > 0 ? (
@@ -245,9 +245,9 @@ export function WalletsPage() {
                 ))}
               </div>
             ) : (
-              <div className="bg-card border border-border rounded-lg p-12 text-center">
+              <div className="bg-card border border-border rounded-2xl p-12 text-center">
                 <p className="text-muted-foreground mb-4">No wallets found</p>
-                <Button className="gap-2" onClick={() => setShowCreateModal(true)}>
+                <Button className="gap-2 rounded-full" onClick={() => setShowCreateModal(true)}>
                   <Plus className="w-4 h-4" />
                   Create Your First Wallet
                 </Button>

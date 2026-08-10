@@ -27,7 +27,7 @@ function CustomTooltip({ active, payload, label }: TooltipProps<number, string>)
   if (!active || !payload?.length) return null
   const { currency, hideAmountsOnOpen } = useSettingsStore.getState()
   return (
-    <div className="bg-card border border-border rounded-lg p-3 shadow-xl text-xs space-y-1.5">
+    <div className="bg-card border border-border rounded-xl p-3 shadow-ios-lg text-xs space-y-1.5">
       <p className="font-semibold text-foreground mb-1">{label}</p>
       {payload.map((entry) => (
         <div key={entry.dataKey as string} className="flex items-center gap-2">
@@ -60,7 +60,7 @@ export function SpendingChart({ period, walletId }: ChartProps) {
   }, [chartDataResponse, period])
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex flex-col h-full">
+    <div className="bg-card border border-border rounded-2xl p-5 shadow-ios flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
@@ -155,7 +155,7 @@ export function PeriodSummaryCard({ period, walletId }: ChartProps) {
   const incomeRatio = total > 0 ? Math.round((totals.income / total) * 100) : 50
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex flex-col h-full">
+    <div className="bg-card border border-border rounded-2xl p-5 shadow-ios flex flex-col h-full">
       <div className="mb-4">
         <h3 className="font-semibold text-foreground">Period Summary</h3>
         <p className="text-xs text-muted-foreground mt-0.5 capitalize">

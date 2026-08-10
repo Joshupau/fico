@@ -38,7 +38,7 @@ export function BillsFilters({ filters, onChange, onReset }: BillsFiltersProps) 
     + Number(filters.dueWindow !== 'all')
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 sm:p-6 space-y-4">
+    <div className="bg-card border border-border rounded-2xl p-4 shadow-ios sm:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-foreground">Filter Bills</h2>
         {activeFilterCount > 0 && (

@@ -74,7 +74,7 @@ export function WalletCard({
 
   return (
     <div
-      className="group relative bg-gradient-to-br from-card to-secondary border border-border rounded-xl p-6 hover:shadow-lg transition-all duration-300 overflow-hidden"
+      className="group relative bg-gradient-to-br from-card to-secondary border border-border rounded-2xl p-6 shadow-ios hover:shadow-ios-lg transition-all duration-300 overflow-hidden"
       style={{
         borderColor: color,
       }}
@@ -88,7 +88,7 @@ export function WalletCard({
       {/* Header with icon and menu */}
       <div className="relative z-10 flex items-start justify-between mb-8">
         <div
-          className="p-3 rounded-lg text-white"
+          className="p-3 rounded-2xl text-white"
           style={{ backgroundColor: color }}
         >
           {getWalletIcon()}
@@ -104,7 +104,7 @@ export function WalletCard({
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-ios-lg py-1 z-50">
                 <button
                   onClick={() => {
                     onEdit?.(id)
@@ -166,14 +166,14 @@ export function WalletCard({
       <div className="relative z-10 flex gap-2">
         <button
           onClick={() => onTransfer?.(id)}
-          className="flex-1 px-3 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+          className="flex-1 px-3 py-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
         >
           <ArrowUpRight className="w-4 h-4" />
           <span className="hidden sm:inline">Send</span>
         </button>
         <button
           onClick={() => onReceive?.(id)}
-          className="flex-1 px-3 py-2 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+          className="flex-1 px-3 py-2 rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors text-sm font-medium flex items-center justify-center gap-2"
         >
           <ArrowDownLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Receive</span>
@@ -181,7 +181,7 @@ export function WalletCard({
       </div>
 
       {status === 'archived' && (
-        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex items-center justify-center">
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-2xl flex items-center justify-center">
           <span className="text-sm font-medium text-muted-foreground">Archived</span>
         </div>
       )}

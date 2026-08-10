@@ -29,7 +29,7 @@ function CategoryTooltip({ active, payload }: TooltipProps<number, string>) {
   if (!item) return null
 
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-xl">
+    <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-ios-lg">
       <p className="font-semibold text-foreground">{item.name}</p>
       <p className="text-muted-foreground">
         {formatMoney(item.amount, currency, hideAmountsOnOpen)} · {item.percentage.toFixed(1)}%
@@ -48,7 +48,7 @@ export function CategoryDistributionCard({ period, walletId }: StatisticsProps) 
   const chartData = categories.length > 0 ? categories : []
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex flex-col self-start">
+    <div className="bg-card border border-border rounded-2xl p-5 shadow-ios flex flex-col self-start">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
           <h3 className="font-semibold text-foreground">Category Mix</h3>

@@ -1,6 +1,6 @@
 # Frontend Implementation Plan: Obligations & Investments
 
-This plan describes the UI/UX requirements for the new Obligations and Investments modules in the Frofinx Finance Tracker, based on the backend API changes in `frofinxAPI`.
+This plan describes the UI/UX requirements for the new Obligations and Investments modules in the Fico Finance Tracker, based on the backend API changes in `fico-api`.
 
 ---
 

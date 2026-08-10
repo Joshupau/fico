@@ -90,7 +90,7 @@ export function SignupForm() {
   const onSubmit = async (data: RegisterFormData) => {
     await registerUser(data, {
       onSuccess: () => {
-        toast.success('Account created! Welcome to FroFinX.')
+        toast.success('Account created! Welcome to Fico.')
         reset()
         setCurrentStep(1)
         setPasswordStrength(0)
@@ -125,8 +125,8 @@ export function SignupForm() {
       <div className="flex flex-col items-center mb-7">
         <div className="w-[72px] h-[72px] rounded-[20px] overflow-hidden mb-5 shadow-sm bg-white dark:bg-zinc-800 flex items-center justify-center">
           <Image
-            src="/FroFinXLogoTrans.png"
-            alt="FroFinX"
+            src="/FicoLogoTrans1.png"
+            alt="Fico"
             width={60}
             height={60}
             className="w-[60px] h-[60px] object-contain"

@@ -31,7 +31,9 @@ function AppShellInner() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       {!hideNav && <Navbar />}
-      <div className="flex-1 relative">
+      <div
+        className={`flex-1 relative${!hideNav ? ' pb-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}
+      >
         <IonRouterOutlet id="main-content" style={{ height: '100%', position: 'relative', display: 'block' }}>
           <Route exact path="/signin" component={SignInPage} />
           <Route exact path="/signup" component={SignUpPage} />

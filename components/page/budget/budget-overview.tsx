@@ -37,7 +37,7 @@ export function BudgetOverview({
   return (
     <div className="space-y-6 mb-8">
       {/* Primary Overview Card */}
-      <div className="relative overflow-hidden bg-card border border-border rounded-2xl p-6 md:p-8 shadow-sm">
+      <div className="relative overflow-hidden bg-card border border-border rounded-2xl p-6 md:p-8 shadow-ios">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-accent/5 rounded-full blur-2xl -ml-24 -mb-24" />
         

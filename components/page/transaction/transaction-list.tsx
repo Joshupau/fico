@@ -192,7 +192,7 @@ export function TransactionList({
     return (
       <div className="space-y-3">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-16 bg-secondary rounded-lg animate-pulse" />
+          <div key={i} className="h-16 bg-secondary rounded-2xl animate-pulse" />
         ))}
       </div>
     )
@@ -220,7 +220,7 @@ export function TransactionList({
               {dayTransactions.map((transaction) => (
                 <div
                   key={transaction.id}
-                  className="w-full bg-card border border-border rounded-lg p-4 transition-all duration-200 text-left group hover:border-primary hover:shadow-md"
+                  className="w-full bg-card border border-border rounded-2xl p-4 transition-all duration-200 text-left group hover:border-primary/50 hover:shadow-ios"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <button
@@ -265,10 +265,10 @@ export function TransactionList({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => onTransactionEdit?.(transaction)}>
+                        <DropdownMenuItem onSelect={() => requestAnimationFrame(() => onTransactionEdit?.(transaction))}>
                           Edit transaction
                         </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" onSelect={() => onTransactionDelete?.(transaction)}>
+                        <DropdownMenuItem variant="destructive" onSelect={() => requestAnimationFrame(() => onTransactionDelete?.(transaction))}>
                           Delete transaction
                         </DropdownMenuItem>
                       </DropdownMenuContent>
