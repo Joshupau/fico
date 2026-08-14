@@ -53,10 +53,10 @@ export function BottomTabBar() {
   return (
     <>
       <nav
-        className="ios-blur safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-border lg:hidden"
+        className="ios-blur fixed inset-x-0 bottom-0 z-40 border-t border-border lg:hidden"
         aria-label="Primary"
       >
-        <div className="mx-auto flex h-(--bottom-nav-h) max-w-md items-stretch justify-around px-2">
+        <div className="mx-auto flex max-w-md items-stretch justify-around px-2">
           {TABS.map((tab) => {
             const active = isActive(tab.href)
             const Icon = tab.icon
@@ -65,7 +65,7 @@ export function BottomTabBar() {
                 key={tab.href}
                 to={tab.href}
                 aria-current={active ? 'page' : undefined}
-                className="flex flex-1 flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-medium"
+                className="flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium"
               >
                 <Icon
                   className={cn('h-6 w-6 transition-transform', active ? 'scale-105 text-primary' : 'text-muted-foreground')}
@@ -78,7 +78,7 @@ export function BottomTabBar() {
           <button
             type="button"
             onClick={() => setMoreOpen(true)}
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-medium"
+            className="flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium"
           >
             <Menu className={cn('h-6 w-6', isMoreActive ? 'text-primary' : 'text-muted-foreground')} strokeWidth={isMoreActive ? 2.4 : 2} />
             <span className={isMoreActive ? 'text-primary' : 'text-muted-foreground'}>More</span>

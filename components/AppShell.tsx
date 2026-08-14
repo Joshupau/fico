@@ -6,6 +6,7 @@ import { Route, Redirect, useLocation } from 'react-router-dom';
 import Providers from '@/queries/query-provider';
 import Navbar from '@/components/navbar';
 import { FloatingAgent } from '@/components/floating-agent';
+import { useIsAuthenticated, useAuthLoading } from '@/store/auth-store';
 
 import SignInPage from '@/ionic-pages/SignInPage';
 import SignUpPage from '@/ionic-pages/SignUpPage';
@@ -26,13 +27,15 @@ setupIonicReact({
 
 function AppShellInner() {
   const location = useLocation();
-  const hideNav = ['/signin', '/signup', '/onboarding', '/auth/callback'].includes(location.pathname);
+  const hideNav = ['/', '/signin', '/signup', '/onboarding', '/auth/callback'].includes(location.pathname);
+  const isAuthenticated = useIsAuthenticated();
+  const isAuthLoading = useAuthLoading();
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       {!hideNav && <Navbar />}
       <div
-        className={`flex-1 relative${!hideNav ? ' pb-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}
+        className={`flex-1 relative${!hideNav ? ' pb-(--bottom-nav-h) lg:pb-0' : ''}`}
       >
         <IonRouterOutlet id="main-content" style={{ height: '100%', position: 'relative', display: 'block' }}>
           <Route exact path="/signin" component={SignInPage} />
@@ -48,7 +51,7 @@ function AppShellInner() {
           <Route exact path="/categories" component={CategoriesPage} />
           <Route exact path="/settings" component={SettingsPage} />
           <Route exact path="/">
-            <Redirect to="/signin" />
+            {!isAuthLoading && <Redirect to={isAuthenticated ? '/dashboard' : '/signin'} />}
           </Route>
         </IonRouterOutlet>
       </div>

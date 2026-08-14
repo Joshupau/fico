@@ -3,17 +3,32 @@
 import { useEffect } from 'react'
 import { useHistory, useLocation } from 'react-router-dom'
 import { jwtDecode } from 'jwt-decode'
-import { useAuthStore } from '@/store/auth-store'
+import { useAuthStore, useIsAuthenticated, useAuthLoading } from '@/store/auth-store'
 import { useSettingsStore } from '@/store/settings-store'
 import type { AccessToken } from '@/types/auth'
+
+const isSupabase = () => process.env.NEXT_PUBLIC_BACKEND === 'supabase'
 
 export function AuthCallbackPage() {
   const history = useHistory()
   const location = useLocation()
   const { setAuth } = useAuthStore()
   const { onboardingCompleted, defaultLandingPage } = useSettingsStore()
+  const isAuthenticated = useIsAuthenticated()
+  const isAuthLoading = useAuthLoading()
+
+  // Supabase path: supabase-js's detectSessionInUrl already parsed the
+  // OAuth redirect and established a session; useSupabaseAuthSync (app
+  // root) picks it up via onAuthStateChange. Just wait for it to settle.
+  useEffect(() => {
+    if (!isSupabase()) return
+    if (isAuthLoading) return
+    history.replace(isAuthenticated ? (onboardingCompleted ? defaultLandingPage : '/onboarding') : '/signin')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSupabase(), isAuthLoading, isAuthenticated])
 
   useEffect(() => {
+    if (isSupabase()) return
     const params = new URLSearchParams(location.search)
     const token    = params.get('token')
     const username = params.get('username') ?? ''

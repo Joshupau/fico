@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import AppWrapper from '../components/AppWrapper'
 
 export default function Page() {
-  redirect('/signin')
+  return <AppWrapper />
 }

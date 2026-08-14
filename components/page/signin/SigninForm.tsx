@@ -4,18 +4,21 @@ import Image from 'next/image'
 import { useState } from 'react'
 import { Eye, EyeOff, X } from 'lucide-react'
 import { useHistory, Link } from 'react-router-dom'
-import { usePassportLogin } from '@/queries/auth/auth'
+import { usePassportLogin, useOAuthLogin } from '@/queries/auth/auth'
 import toast from 'react-hot-toast'
 import { jwtDecode } from 'jwt-decode'
 import { AccessToken } from '@/types/auth'
 import { useAuthStore } from '@/store/auth-store'
 import { useSettingsStore } from '@/store/settings-store'
 
+const isSupabase = () => process.env.NEXT_PUBLIC_BACKEND === 'supabase'
+
 export function SigninForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [usernameVal, setUsernameVal] = useState('')
   const [passwordVal, setPasswordVal] = useState('')
   const { mutate: loginUser, isPending } = usePassportLogin()
+  const { mutate: oauthLogin } = useOAuthLogin()
   const { setAuth } = useAuthStore()
   const { onboardingCompleted, defaultLandingPage } = useSettingsStore()
   const history = useHistory()
@@ -29,9 +32,14 @@ export function SigninForm() {
       password: passwordVal.trim(),
     }, {
       onSuccess: (data) => {
-        const token = jwtDecode<AccessToken>(data.data?.access)
-        localStorage.setItem('auth', data.data?.access)
-        setAuth(token)
+        // Supabase path: useSupabaseAuthSync (registered at the app root)
+        // already populated the auth store from the real session — nothing
+        // to decode here.
+        if (!isSupabase()) {
+          const token = jwtDecode<AccessToken>(data.data?.access)
+          localStorage.setItem('auth', data.data?.access)
+          setAuth(token)
+        }
         toast.success('Logged in successfully!')
         history.push(onboardingCompleted ? defaultLandingPage : '/onboarding')
       },
@@ -39,12 +47,14 @@ export function SigninForm() {
   }
 
   const handleGoogleLogin = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
-    if (!apiUrl) {
-      toast.error('API URL not configured')
-      return
+    if (!isSupabase()) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
+      if (!apiUrl) {
+        toast.error('API URL not configured')
+        return
+      }
     }
-    window.location.href = `${apiUrl}/auth/google`
+    oauthLogin({ provider: 'google' })
   }
 
   const inputBase =

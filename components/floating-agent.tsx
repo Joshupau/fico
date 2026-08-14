@@ -304,7 +304,7 @@ export function FloatingAgent() {
     return (
       <button
         onClick={() => setIsHidden(false)}
-        className="fixed bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom)+1rem)] right-4 z-40 lg:bottom-6 lg:right-6 flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg transition-all duration-300 text-sm font-medium"
+        className="fixed bottom-[calc(var(--bottom-nav-h)+1rem)] right-4 z-40 lg:bottom-6 lg:right-6 flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg transition-all duration-300 text-sm font-medium"
       >
         <MessageCircle size={16} />
         Show Agent
@@ -317,7 +317,7 @@ export function FloatingAgent() {
   // ---------------------------------------------------------------------------
   return (
     <>
-      <div className="fixed bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom)+1rem)] right-4 z-50 lg:bottom-6 lg:right-6">
+      <div className="fixed bottom-[calc(var(--bottom-nav-h)+1rem)] right-4 z-50 lg:bottom-6 lg:right-6">
 
         {/* ── Expanded Panel ── */}
         <div
