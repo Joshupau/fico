@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { useCreateWallet, useUpdateWallet } from '@/queries/user/wallet/wallets'
+import { useCreateWallet, useUpdateWallet, useSetBalance } from '@/queries/user/wallet/wallets'
 import { CreateWalletData, UpdateWalletData, WalletType } from '@/types/wallet'
 
 interface CreateWalletModalProps {
@@ -23,6 +23,7 @@ interface CreateWalletModalProps {
     id: string
     name?: string
     type?: WalletType
+    balance?: number
     color?: string
     icon?: string
     description?: string
@@ -52,6 +53,7 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
   const [formData, setFormData] = useState<CreateWalletData>(initialFormData)
   const { mutate: createWallet, isPending } = useCreateWallet()
   const { mutate: updateWallet, isPending: isUpdating } = useUpdateWallet()
+  const { mutate: setBalance, isPending: isOverriding } = useSetBalance()
   const isEdit = !!wallet
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
       setFormData({
         name: wallet.name || '',
         type: wallet.type || 'bank',
-        balance: undefined,
+        balance: wallet.balance,
         currency: undefined,
         color: wallet.color || '#0066CC',
         icon: wallet.icon || '',
@@ -129,11 +131,27 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
         accountNumber: formData.accountNumber,
       }
 
+      const balanceChanged = formData.balance !== undefined && formData.balance !== wallet.balance
+
       updateWallet(updateData, {
         onSuccess: () => {
-          toast.success('Wallet updated successfully!')
-          onClose()
-          onSuccess?.()
+          if (!balanceChanged) {
+            toast.success('Wallet updated successfully!')
+            onClose()
+            onSuccess?.()
+            return
+          }
+
+          setBalance(
+            { id: wallet.id, balance: formData.balance as number },
+            {
+              onSuccess: () => {
+                toast.success('Wallet updated and balance overridden!')
+                onClose()
+                onSuccess?.()
+              },
+            }
+          )
         },
       })
       return
@@ -194,24 +212,28 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
             </select>
           </div>
 
-          {!isEdit && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <label htmlFor="balance" className="block text-sm font-medium text-foreground">
-                  Initial Balance
-                </label>
-                <Input
-                  id="balance"
-                  type="number"
-                  name="balance"
-                  min="0"
-                  step="0.01"
-                  value={formData.balance ?? ''}
-                  onChange={handleFieldChange}
-                  placeholder="0.00"
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label htmlFor="balance" className="block text-sm font-medium text-foreground">
+                {isEdit ? 'Balance (override)' : 'Initial Balance'}
+              </label>
+              <Input
+                id="balance"
+                type="number"
+                name="balance"
+                step="0.01"
+                value={formData.balance ?? ''}
+                onChange={handleFieldChange}
+                placeholder="0.00"
+              />
+              {isEdit && (
+                <p className="text-xs text-muted-foreground">
+                  Directly sets the balance. Transactions no longer adjust it automatically after import — use this to reconcile.
+                </p>
+              )}
+            </div>
 
+            {!isEdit && (
               <div className="space-y-2">
                 <label htmlFor="currency" className="block text-sm font-medium text-foreground">
                   Currency
@@ -224,8 +246,8 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
                   placeholder="$"
                 />
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -285,11 +307,11 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
           </div>
 
           <SheetFooter className="px-0 pt-2 border-t-0">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isPending || isUpdating}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isPending || isUpdating || isOverriding}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending || isUpdating}>
-              {isPending || isUpdating ? (isEdit ? 'Saving...' : 'Creating...') : isEdit ? 'Save Changes' : 'Create Wallet'}
+            <Button type="submit" disabled={isPending || isUpdating || isOverriding}>
+              {isPending || isUpdating || isOverriding ? (isEdit ? 'Saving...' : 'Creating...') : isEdit ? 'Save Changes' : 'Create Wallet'}
             </Button>
           </SheetFooter>
         </form>

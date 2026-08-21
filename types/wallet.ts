@@ -29,6 +29,11 @@ export type AdjustBalanceData = {
   description?: string;
 };
 
+export type SetBalanceData = {
+  id: string;
+  balance: number;
+};
+
 export type ArchiveWalletData = {
   id: string;
 };

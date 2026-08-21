@@ -9,6 +9,7 @@ import {
   CreateWalletData,
   UpdateWalletData,
   AdjustBalanceData,
+  SetBalanceData,
   ArchiveWalletData,
   ListWalletsParams,
   GetWalletParams,
@@ -153,6 +154,31 @@ const adjustBalance = async (data: AdjustBalanceData) => {
 export const useAdjustBalance = () => {
   return useMutation({
     mutationFn: (data: AdjustBalanceData) => adjustBalance(data),
+    onError: (error) => {
+      handleApiError(error);
+    },
+  });
+};
+
+// Set (override) Balance — directly overwrites the running total, unlike
+// adjustBalance which applies a delta. Used to reconcile a wallet after an
+// import, since imports no longer move the balance themselves.
+const setBalance = async (data: SetBalanceData) => {
+  if (isSupabase()) {
+    const { data: row, error } = await supabase.rpc('wallets_set_balance', {
+      p_wallet_id: data.id,
+      p_balance: data.balance,
+    });
+    if (error) throw error;
+    return { message: 'success', data: { newBalance: row.balance } };
+  }
+  const response = await axiosInstance.post("/wallet/set-balance", data);
+  return response.data;
+};
+
+export const useSetBalance = () => {
+  return useMutation({
+    mutationFn: (data: SetBalanceData) => setBalance(data),
     onError: (error) => {
       handleApiError(error);
     },
