@@ -23,8 +23,8 @@ export default function StatisticsPage() {
   const { data: walletsResponse } = useListWallets()
   const { currency, hideAmountsOnOpen } = useSettingsStore()
 
-  const { data: topCategoriesResponse } = useTopCategories({ period, walletId, type: 'expense' })
-  const { data: quickStatsResponse } = useQuickStats({ period, walletId })
+  const { data: topCategoriesResponse } = useTopCategories({ period, walletId: walletId || undefined, type: 'expense' })
+  const { data: quickStatsResponse } = useQuickStats({ period, walletId: walletId || undefined })
 
   const periodOptions: { label: string; value: PeriodType }[] = [
     { label: 'Today', value: 'today' },

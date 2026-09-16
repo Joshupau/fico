@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Trash2, LayoutGrid, List, Edit2 } from 'lucide-react'
 import CategoryModal from './category-modal'
 import { useListCategories, useArchiveCategory } from '@/queries/user/category/categories'
+import { useTopCategories } from '@/queries/user/transaction/transaction'
 import { CategoryCard } from '@/components/page/categories/category-card'
 
 interface CategoryViewModel {
@@ -14,6 +15,7 @@ interface CategoryViewModel {
   icon?: string
   color?: string
   status?: 'active' | 'archived'
+  transactionCount?: number
 }
 
 interface CategoryApiItem {
@@ -26,7 +28,11 @@ interface CategoryApiItem {
   status?: string
 }
 
-const normalizeCategory = (category: CategoryApiItem, index: number): CategoryViewModel => {
+const normalizeCategory = (
+  category: CategoryApiItem,
+  index: number,
+  transactionCountByCategoryId: Record<string, number>
+): CategoryViewModel => {
   const resolvedId = category._id ?? category.id ?? `category-${index}`
 
   return {
@@ -36,6 +42,7 @@ const normalizeCategory = (category: CategoryApiItem, index: number): CategoryVi
     icon: category.icon,
     color: category.color,
     status: (category.status === 'archived' ? 'archived' : 'active') as 'active' | 'archived',
+    transactionCount: transactionCountByCategoryId[resolvedId] ?? 0,
   }
 }
 
@@ -46,6 +53,19 @@ export default function CategoryList() {
 
   const { data: categoryResponse, isLoading, refetch } = useListCategories()
   const { mutate: archiveCategory } = useArchiveCategory()
+  const { data: expenseBreakdownResponse } = useTopCategories({ period: 'all', type: 'expense' })
+  const { data: incomeBreakdownResponse } = useTopCategories({ period: 'all', type: 'income' })
+
+  const transactionCountByCategoryId = useMemo(() => {
+    const rows = [
+      ...(expenseBreakdownResponse?.data?.breakdown ?? []),
+      ...(incomeBreakdownResponse?.data?.breakdown ?? []),
+    ]
+    return rows.reduce((acc: Record<string, number>, row: any) => {
+      if (row.categoryId) acc[row.categoryId] = row.count
+      return acc
+    }, {})
+  }, [expenseBreakdownResponse, incomeBreakdownResponse])
 
   const categories = useMemo(() => {
     const responseData = categoryResponse?.data as
@@ -54,19 +74,19 @@ export default function CategoryList() {
       | undefined
 
     if (Array.isArray(responseData)) {
-      return responseData.map((category, categoryIndex) => normalizeCategory(category, categoryIndex))
+      return responseData.map((category, categoryIndex) => normalizeCategory(category, categoryIndex, transactionCountByCategoryId))
     }
 
     if (responseData && Array.isArray(responseData.items)) {
-      return responseData.items.map((category, categoryIndex) => normalizeCategory(category, categoryIndex))
+      return responseData.items.map((category, categoryIndex) => normalizeCategory(category, categoryIndex, transactionCountByCategoryId))
     }
 
     if (responseData && Array.isArray(responseData.categories)) {
-      return responseData.categories.map((category, categoryIndex) => normalizeCategory(category, categoryIndex))
+      return responseData.categories.map((category, categoryIndex) => normalizeCategory(category, categoryIndex, transactionCountByCategoryId))
     }
 
     return []
-  }, [categoryResponse])
+  }, [categoryResponse, transactionCountByCategoryId])
 
   const handleArchive = (categoryId: string) => {
     archiveCategory(

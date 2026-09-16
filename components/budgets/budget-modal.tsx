@@ -96,19 +96,33 @@ export default function BudgetModal({ open, onClose, budget }: { open: boolean; 
   }, [open, budget, form])
 
   const onSubmit = (data: BudgetFormValues) => {
-    // Calculate startDate and endDate for the budget period
+    // Calculate startDate/endDate as the current calendar period (not a
+    // rolling window from "right now"), so a budget created mid-period picks
+    // up transactions already logged earlier in that period — matching how
+    // every other "this month/week/year" figure in the app (reports RPCs)
+    // defines its window. A rolling window from creation time made a
+    // freshly-created budget's spent total start at 0 even when the
+    // category already had spending earlier in the period.
     const now = new Date()
-    let startDate = now.toISOString()
-    let endDate: string | undefined
+    let start: Date
+    let end: Date
     if (data.period === 'daily') {
-      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1)
     } else if (data.period === 'weekly') {
-      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString()
-    } else if (data.period === 'monthly') {
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString()
+      const dayOfWeek = now.getDay() // 0 = Sunday
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday)
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7)
     } else if (data.period === 'yearly') {
-      endDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString()
+      start = new Date(now.getFullYear(), 0, 1)
+      end = new Date(start.getFullYear() + 1, 0, 1)
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(start.getFullYear(), start.getMonth() + 1, 1)
     }
+    const startDate = start.toISOString()
+    const endDate = end.toISOString()
 
     const payload = {
       ...data,

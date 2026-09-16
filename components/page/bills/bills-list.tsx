@@ -107,9 +107,9 @@ export function BillsList({
     <div className="space-y-3">
       {sortByDueDate(bills).map((bill) => {
         const dueDays = getDaysFromToday(bill.dueDate)
-        const isOverdue = typeof dueDays === 'number' && dueDays < 0
         const isIncome = bill.type === 'income'
         const isSettled = bill.paymentStatus === 'paid' || bill.paymentStatus === 'received'
+        const isOverdue = !isSettled && typeof dueDays === 'number' && dueDays < 0
         const showMarkPaid = !isSettled
         const markActionLabel = isIncome ? (showMarkPaid ? 'Mark Received' : 'Mark Unreceived') : (showMarkPaid ? 'Mark Paid' : 'Mark Unpaid')
         const cardTone = isOverdue
@@ -156,7 +156,11 @@ export function BillsList({
                       <span>{bill.dueDate ? formatDate(bill.dueDate) : 'No due date'}</span>
                     </div>
                     <div className={`text-sm font-medium ${statusTone}`}>
-                      {bill.dueDate ? formatDueDateLabel(bill.dueDate) : 'No due date'}
+                      {!bill.dueDate
+                        ? 'No due date'
+                        : isSettled
+                          ? (isIncome ? 'Received' : 'Paid')
+                          : formatDueDateLabel(bill.dueDate)}
                     </div>
                     {categoryName && (
                       <div className="flex items-center gap-2 text-muted-foreground">

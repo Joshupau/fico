@@ -118,19 +118,51 @@ export const useArchiveCategory = () => {
   });
 };
 
-// Get Category Summary
+// Get Category Summary — also feeds CategoryOverview's "Top Category" /
+// "Total Budget" / "Budget Alerts" tiles, which nothing above ever
+// populated (mostUsedCategory/totalBudget/budgetAlerts weren't part of this
+// endpoint's response even before the Supabase migration), so those tiles
+// always read "None" / ₱0.00 / 0 regardless of actual data.
 const getCategorySummary = async () => {
   if (isSupabase()) {
-    const [{ count: totalIncome }, { count: totalExpense }, { count: userCreated }, { count: defaultCategories }] =
-      await Promise.all([
-        supabase.from('categories').select('*', { count: 'exact', head: true }).eq('type', 'income').eq('status', 'active'),
-        supabase.from('categories').select('*', { count: 'exact', head: true }).eq('type', 'expense').eq('status', 'active'),
-        supabase.from('categories').select('*', { count: 'exact', head: true }).eq('status', 'active').not('owner_id', 'is', null),
-        supabase.from('categories').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('is_default', true).is('owner_id', null),
-      ]);
+    const [
+      { count: totalIncome },
+      { count: totalExpense },
+      { count: userCreated },
+      { count: defaultCategories },
+      { data: expenseBreakdown },
+      { data: incomeBreakdown },
+      { data: budgetSummary },
+    ] = await Promise.all([
+      supabase.from('categories').select('*', { count: 'exact', head: true }).eq('type', 'income').eq('status', 'active'),
+      supabase.from('categories').select('*', { count: 'exact', head: true }).eq('type', 'expense').eq('status', 'active'),
+      supabase.from('categories').select('*', { count: 'exact', head: true }).eq('status', 'active').not('owner_id', 'is', null),
+      supabase.from('categories').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('is_default', true).is('owner_id', null),
+      supabase.rpc('reports_category_breakdown', { p_type: 'expense', p_period: 'all' }),
+      supabase.rpc('reports_category_breakdown', { p_type: 'income', p_period: 'all' }),
+      supabase.rpc('budgets_summary'),
+    ]);
+
+    const breakdownRows = [
+      ...(expenseBreakdown?.breakdown ?? []),
+      ...(incomeBreakdown?.breakdown ?? []),
+    ];
+    const mostUsed = breakdownRows.reduce(
+      (top: any, row: any) => (!top || row.count > top.count ? row : top),
+      null as any
+    );
+
     return {
       message: 'success',
-      data: { totalIncome, totalExpense, userCreated, defaultCategories },
+      data: {
+        totalIncome,
+        totalExpense,
+        userCreated,
+        defaultCategories,
+        mostUsedCategory: mostUsed ? { name: mostUsed.categoryName } : null,
+        totalBudget: budgetSummary?.totalBudgeted ?? 0,
+        budgetAlerts: budgetSummary?.exceededBudgets ?? 0,
+      },
     };
   }
   const response = await axiosInstance.get("/category/summary");
