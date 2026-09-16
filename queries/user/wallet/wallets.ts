@@ -17,6 +17,12 @@ import {
 
 const isSupabase = () => process.env.NEXT_PUBLIC_BACKEND === 'supabase';
 
+const invalidateWalletQueries = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: ["wallets"] });
+  queryClient.invalidateQueries({ queryKey: ["wallet"] });
+  queryClient.invalidateQueries({ queryKey: ["wallet-total-balance"] });
+};
+
 // Create Wallet — simple single-table insert, direct client call (layer (a)).
 const createWallet = async (data: CreateWalletData) => {
   if (isSupabase()) {
@@ -42,8 +48,12 @@ const createWallet = async (data: CreateWalletData) => {
 };
 
 export const useCreateWallet = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateWalletData) => createWallet(data),
+    onSuccess: () => {
+      invalidateWalletQueries(queryClient);
+    },
     onError: (error) => {
       handleApiError(error);
     },
@@ -128,8 +138,12 @@ const updateWallet = async (data: UpdateWalletData) => {
 };
 
 export const useUpdateWallet = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: UpdateWalletData) => updateWallet(data),
+    onSuccess: () => {
+      invalidateWalletQueries(queryClient);
+    },
     onError: (error) => {
       handleApiError(error);
     },
@@ -152,8 +166,12 @@ const adjustBalance = async (data: AdjustBalanceData) => {
 };
 
 export const useAdjustBalance = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: AdjustBalanceData) => adjustBalance(data),
+    onSuccess: () => {
+      invalidateWalletQueries(queryClient);
+    },
     onError: (error) => {
       handleApiError(error);
     },
@@ -177,8 +195,12 @@ const setBalance = async (data: SetBalanceData) => {
 };
 
 export const useSetBalance = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: SetBalanceData) => setBalance(data),
+    onSuccess: () => {
+      invalidateWalletQueries(queryClient);
+    },
     onError: (error) => {
       handleApiError(error);
     },
@@ -197,8 +219,12 @@ const archiveWallet = async (data: ArchiveWalletData) => {
 };
 
 export const useArchiveWallet = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: ArchiveWalletData) => archiveWallet(data),
+    onSuccess: () => {
+      invalidateWalletQueries(queryClient);
+    },
     onError: (error) => {
       handleApiError(error);
     },

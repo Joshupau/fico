@@ -19,6 +19,24 @@ import {
 
 const isSupabase = () => process.env.NEXT_PUBLIC_BACKEND === 'supabase';
 
+// Shared by any mutation that can move a wallet balance (create/update/delete
+// transaction) — without this, wallet balances and dashboard stats stay
+// stale in every screen except the one that happens to call its own refetch.
+const invalidateTransactionAndWalletQueries = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: ["wallets"] });
+  queryClient.invalidateQueries({ queryKey: ["wallet"] });
+  queryClient.invalidateQueries({ queryKey: ["wallet-total-balance"] });
+  queryClient.invalidateQueries({ queryKey: ["transactions"] });
+  queryClient.invalidateQueries({ queryKey: ["transactions-summary"] });
+  queryClient.invalidateQueries({ queryKey: ["transaction-monthly-report"] });
+  queryClient.invalidateQueries({ queryKey: ["transaction-category-breakdown"] });
+  queryClient.invalidateQueries({ queryKey: ["transactions-quick-stats"] });
+  queryClient.invalidateQueries({ queryKey: ["transaction-chart-data"] });
+  queryClient.invalidateQueries({ queryKey: ["transaction-top-categories"] });
+  queryClient.invalidateQueries({ queryKey: ["transactions-spent-today"] });
+  queryClient.invalidateQueries({ queryKey: ["transactions-top-category-today"] });
+};
+
 // Create Transaction — balance mutation + optional bill linkage, so this
 // goes through the transactions_create RPC (layer (b)), not a direct insert.
 const createTransaction = async (data: CreateTransactionData & { createBillForFee?: boolean }) => {
@@ -45,8 +63,12 @@ const createTransaction = async (data: CreateTransactionData & { createBillForFe
 };
 
 export const useCreateTransaction = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: Parameters<typeof createTransaction>[0]) => createTransaction(data),
+    onSuccess: () => {
+      invalidateTransactionAndWalletQueries(queryClient);
+    },
     onError: (error) => {
       handleApiError(error);
     },
@@ -121,8 +143,12 @@ const updateTransaction = async (data: UpdateTransactionData) => {
 };
 
 export const useUpdateTransaction = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: Parameters<typeof updateTransaction>[0]) => updateTransaction(data),
+    onSuccess: () => {
+      invalidateTransactionAndWalletQueries(queryClient);
+    },
     onError: (error) => {
       handleApiError(error);
     },
@@ -145,8 +171,7 @@ export const useDeleteTransaction = () => {
   return useMutation({
     mutationFn: (data: Parameters<typeof deleteTransaction>[0]) => deleteTransaction(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions-summary"] });
+      invalidateTransactionAndWalletQueries(queryClient);
     },
     onError: (error) => {
       handleApiError(error);
@@ -227,7 +252,7 @@ export const useImportTransactions = () => {
   return useMutation({
     mutationFn: (data: Parameters<typeof importTransactions>[0]) => importTransactions(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      invalidateTransactionAndWalletQueries(queryClient);
     },
     onError: (error) => {
       handleApiError(error);
