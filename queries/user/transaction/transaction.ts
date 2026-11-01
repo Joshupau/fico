@@ -14,6 +14,8 @@ import {
   GetMonthlyReportParams,
   GetCategoryBreakdownParams,
   ImportTransactionsData,
+  SetAffectsBalanceRangeData,
+  WalletReconcileRow,
   transactionsSummaryParams,
   quickStatsTransactionParams,
 } from "@/types/transaction";
@@ -64,6 +66,7 @@ const createTransaction = async (data: CreateTransactionData & { createBillForFe
       p_bill_id: data.billId ?? null,
       p_service_fee: data.serviceFee ?? 0,
       p_create_bill_for_fee: data.createBillForFee ?? false,
+      p_affects_balance: data.affectsBalance ?? true,
     });
     if (error) throw error;
     return { message: 'success', data: toCamelCase(row) };
@@ -147,9 +150,9 @@ export const useInfiniteTransactions = (params: Omit<ListTransactionsParams, 'pa
   });
 };
 
-// Update Transaction — category/description/date/attachments/tags/status
-// and the leave-out-of-baseline flag only; amount/type/wallet are structurally excluded (see
-// transactions_update in 0014_rpc_transactions.sql).
+// Update Transaction — any field, including amount, type, wallets and the "don't change wallet
+// balance" flag. transactions_update (fico-api 0061) moves wallets by the difference between the
+// old and new row, and not at all while the flag is off.
 const updateTransaction = async (data: UpdateTransactionData) => {
   if (isSupabase()) {
     const { data: row, error } = await supabase.rpc('transactions_update', {
@@ -161,6 +164,11 @@ const updateTransaction = async (data: UpdateTransactionData) => {
       p_tags: data.tags ?? null,
       p_status: data.status ?? null,
       p_exclude_from_baseline: data.excludeFromBaseline ?? null,
+      p_amount: data.amount ?? null,
+      p_type: data.type ?? null,
+      p_wallet_id: data.walletId ?? null,
+      p_to_wallet_id: data.toWalletId ?? null,
+      p_affects_balance: data.affectsBalance ?? null,
     });
     if (error) throw error;
     return { message: 'success', data: toCamelCase(row) };
@@ -205,6 +213,78 @@ export const useDeleteTransaction = () => {
     },
   });
 };
+
+// Bulk "don't change wallet balance": sets the flag on every transaction in a date range.
+const startOfDay = (day: string) => new Date(`${day}T00:00:00`).toISOString()
+const endOfDay = (day: string) => new Date(`${day}T23:59:59.999`).toISOString()
+
+/** How many transactions in the range would switch, for the confirmation line. */
+const countAffectsBalanceRange = async (data: SetAffectsBalanceRangeData) => {
+  let query = supabase
+    .from('transactions')
+    .select('id', { count: 'exact', head: true })
+    .gte('date', startOfDay(data.startDate))
+    .lte('date', endOfDay(data.endDate))
+    .eq('affects_balance', !data.affectsBalance)
+  if (data.walletId) query = query.or(`wallet_id.eq.${data.walletId},to_wallet_id.eq.${data.walletId}`)
+  const { count, error } = await query
+  if (error) throw error
+  return count ?? 0
+}
+
+export const useAffectsBalanceRangeCount = (data: SetAffectsBalanceRangeData | null) => {
+  return useQuery({
+    queryKey: ["transactions", "affects-balance-count", data],
+    queryFn: () => countAffectsBalanceRange(data!),
+    enabled: !!data && !!data.startDate && !!data.endDate && data.startDate <= data.endDate,
+  })
+}
+
+const setAffectsBalanceRange = async (data: SetAffectsBalanceRangeData) => {
+  const { data: result, error } = await supabase.rpc('transactions_set_affects_balance', {
+    p_start: startOfDay(data.startDate),
+    p_end: endOfDay(data.endDate),
+    p_affects_balance: data.affectsBalance,
+    p_wallet_id: data.walletId ?? null,
+    p_adjust_balances: data.adjustBalances ?? false,
+  })
+  if (error) throw error
+  return { message: 'success', data: toCamelCase(result) as { updated: number; balancesAdjusted: boolean } }
+}
+
+export const useSetAffectsBalanceRange = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: SetAffectsBalanceRangeData) => setAffectsBalanceRange(data),
+    onSuccess: () => {
+      invalidateTransactionAndWalletQueries(queryClient)
+    },
+    onError: (error) => {
+      handleApiError(error)
+    },
+  })
+}
+
+// Reconcile: each wallet's stored balance next to the sum of its balance-affecting transactions.
+// Keyed under "wallets" so every transaction or wallet change refreshes it.
+const reconcileWallets = async (): Promise<WalletReconcileRow[]> => {
+  const { data, error } = await supabase.rpc('wallets_reconcile')
+  if (error) throw error
+  return (toCamelCase(data ?? []) as WalletReconcileRow[]).map((row) => ({
+    ...row,
+    storedBalance: Number(row.storedBalance),
+    transactionBalance: Number(row.transactionBalance),
+    difference: Number(row.difference),
+  }))
+}
+
+export const useReconcileWallets = (enabled = true) => {
+  return useQuery({
+    queryKey: ["wallets", "reconcile"],
+    queryFn: reconcileWallets,
+    enabled,
+  })
+}
 
 // Get Monthly Report
 const getMonthlyReport = async (params: GetMonthlyReportParams) => {

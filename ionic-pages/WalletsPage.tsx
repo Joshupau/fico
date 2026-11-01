@@ -4,12 +4,13 @@ import { EmptyState } from '@/components/peacock-mascot'
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, Plus, Scale } from 'lucide-react'
 import { IonContent, IonPage } from '@ionic/react'
 import { MoneyOverviewCard } from '@/components/page/wallet/money-overview-card'
 import { WalletCard } from '@/components/page/wallet/wallet-card'
 import { CreateWalletModal } from '@/components/page/wallet/create-wallet-modal'
 import { CreateTransactionModal } from '@/components/page/transaction/create-transaction-modal'
+import { ReconcileSheet } from '@/components/page/wallet/reconcile-sheet'
 import { useArchiveWallet, useListWallets, useSyncCardBills } from '@/queries/user/wallet/wallets'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
@@ -106,6 +107,7 @@ export function WalletsPage() {
   const [showTransferModal, setShowTransferModal] = useState(false)
   const [showReceiveModal, setShowReceiveModal] = useState(false)
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null)
+  const [showReconcile, setShowReconcile] = useState(false)
 
   const { data: walletResponse, isLoading, refetch } = useListWallets()
   const { mutate: archiveWallet } = useArchiveWallet()
@@ -223,9 +225,22 @@ export function WalletsPage() {
     <IonPage>
       <IonContent className="bg-background text-foreground">
         <main className="mx-auto max-w-7xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your accounts</p>
-            <h1 className="mt-1 font-heading text-2xl font-semibold leading-tight text-foreground sm:text-3xl">Money</h1>
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your accounts</p>
+              <h1 className="mt-1 font-heading text-2xl font-semibold leading-tight text-foreground sm:text-3xl">Money</h1>
+            </div>
+            {wallets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowReconcile(true)}
+                aria-label="Check balances"
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-ios hover:border-primary/50"
+              >
+                <Scale className="h-4 w-4 text-primary" />
+                <span className="hidden sm:inline">Check balances</span>
+              </button>
+            )}
           </div>
 
           <div className="mt-5">
@@ -359,6 +374,8 @@ export function WalletsPage() {
         onSuccess={() => refetch()}
         wallet={selectedWallet}
       />
+
+      <ReconcileSheet open={showReconcile} onClose={() => setShowReconcile(false)} />
 
       {/* Transfer Modal */}
 
