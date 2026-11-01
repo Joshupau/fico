@@ -54,7 +54,7 @@ export default function CategoriesPage() {
             isLoading={summaryLoading}
           />
 
-          <CategoryList />
+          <CategoryList searchQuery={searchQuery} />
           
           <CategoryModal 
             open={isModalOpen} 

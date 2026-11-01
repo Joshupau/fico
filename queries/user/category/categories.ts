@@ -9,6 +9,7 @@ import {
   CreateCategoryData,
   UpdateCategoryData,
   ArchiveCategoryData,
+  DeleteCategoryData,
   ListCategoriesParams,
 } from "@/types/category";
 
@@ -31,12 +32,12 @@ const createCategory = async (data: CreateCategoryData) => {
   return response.data;
 };
 
-// Categories show up in forms and budget cards all over the app, so any change refreshes every list
-// that reads them (matched by prefix, whatever parameters each screen used).
-const CATEGORY_KEYS = ['categories', 'category-summary', 'budgets', 'current-budgets'];
+// Categories show up in forms, budget cards, transaction lists and reports all over the app, and
+// the first change to a default category moves every transaction onto the user's own copy
+// (migration 0060), so any change refreshes everything.
 const useRefreshCategories = () => {
   const queryClient = useQueryClient();
-  return () => Promise.all(CATEGORY_KEYS.map((key) => queryClient.invalidateQueries({ queryKey: [key] })));
+  return () => queryClient.invalidateQueries();
 };
 
 export const useCreateCategory = () => {
@@ -50,12 +51,25 @@ export const useCreateCategory = () => {
   });
 };
 
-// List Categories — includes global (owner_id null) categories per RLS.
+// Once a user has changed a default category they get their own copy of every default
+// (categories_make_own, migration 0060), and the shared defaults are hidden from them.
+const getOwnsCategories = async (): Promise<boolean> => {
+  const { data, error } = await supabase.from('profiles').select('owns_categories').maybeSingle();
+  // Before migration 0060 the column doesn't exist yet: everyone still sees the shared defaults.
+  if (error) return false;
+  return !!data?.owns_categories;
+};
+
+// List Categories — includes global (owner_id null) categories per RLS, until the user owns their
+// own copies. Archived categories only come back when asked for (status: 'archived'), so they
+// never show up in pickers.
 const listCategories = async (params: ListCategoriesParams) => {
   if (isSupabase()) {
     const page = parseInt(params.page ?? '0') || 0;
     const limit = parseInt(params.limit ?? '50') || 50;
-    let query = supabase.from('categories').select('*', { count: 'exact' }).eq('status', 'active');
+    const ownsCategories = await getOwnsCategories();
+    let query = supabase.from('categories').select('*', { count: 'exact' }).eq('status', params.status ?? 'active');
+    if (ownsCategories) query = query.not('owner_id', 'is', null);
     if (params.type) query = query.eq('type', params.type);
     if (params.search) query = query.ilike('name', `%${params.search}%`);
     const { data, count, error } = await query
@@ -87,13 +101,16 @@ export const useListCategories = (params?: ListCategoriesParams) => {
 // Update Category
 const updateCategory = async (data: UpdateCategoryData) => {
   if (isSupabase()) {
-    const { id, ...rest } = data;
-    const { error } = await supabase
-      .from('categories')
-      .update({ name: rest.name, icon: rest.icon, color: rest.color, status: rest.status })
-      .eq('id', id);
+    // Through the RPC rather than a plain update, so a default category (a shared row nobody can
+    // write) becomes the user's own copy first.
+    const { data: row, error } = await supabase.rpc('categories_update', {
+      p_id: data.id,
+      p_name: data.name ?? null,
+      p_icon: data.icon ?? null,
+      p_color: data.color ?? null,
+    });
     if (error) throw error;
-    return { message: 'success' };
+    return { message: 'success', data: toCamelCase(row) };
   }
   const response = await axiosInstance.post("/category/update", data);
   return response.data;
@@ -148,10 +165,10 @@ export const useSetCategoryExcludeFromBaseline = () => {
   });
 };
 
-// Archive Category
+// Archive Category — hides it from pickers; transactions keep it.
 const archiveCategory = async (data: ArchiveCategoryData) => {
   if (isSupabase()) {
-    const { error } = await supabase.from('categories').update({ status: 'archived' }).eq('id', data.id);
+    const { error } = await supabase.rpc('categories_archive', { p_id: data.id });
     if (error) throw error;
     return { message: 'success' };
   }
@@ -164,6 +181,54 @@ export const useArchiveCategory = () => {
   return useMutation({
     onSuccess: refreshCategories,
     mutationFn: (data: ArchiveCategoryData) => archiveCategory(data),
+    onError: (error) => {
+      handleApiError(error);
+    },
+  });
+};
+
+// Unarchive Category — back in every picker.
+const unarchiveCategory = async (data: ArchiveCategoryData) => {
+  if (isSupabase()) {
+    const { error } = await supabase.rpc('categories_unarchive', { p_id: data.id });
+    if (error) throw error;
+    return { message: 'success' };
+  }
+  const response = await axiosInstance.post("/category/update", { id: data.id, status: 'active' });
+  return response.data;
+};
+
+export const useUnarchiveCategory = () => {
+  const refreshCategories = useRefreshCategories();
+  return useMutation({
+    onSuccess: refreshCategories,
+    mutationFn: (data: ArchiveCategoryData) => unarchiveCategory(data),
+    onError: (error) => {
+      handleApiError(error);
+    },
+  });
+};
+
+// Delete Category — its transactions, bills and budgets move to replacementId, or become
+// uncategorized without one.
+const deleteCategory = async (data: DeleteCategoryData) => {
+  if (isSupabase()) {
+    const { data: result, error } = await supabase.rpc('categories_delete', {
+      p_id: data.id,
+      p_replacement_id: data.replacementId ?? null,
+    });
+    if (error) throw error;
+    return { message: 'success', data: result };
+  }
+  const response = await axiosInstance.post("/category/delete", data);
+  return response.data;
+};
+
+export const useDeleteCategory = () => {
+  const refreshCategories = useRefreshCategories();
+  return useMutation({
+    onSuccess: refreshCategories,
+    mutationFn: (data: DeleteCategoryData) => deleteCategory(data),
     onError: (error) => {
       handleApiError(error);
     },

@@ -20,7 +20,14 @@ export type ArchiveCategoryData = {
   id: string;
 };
 
+export type DeleteCategoryData = {
+  id: string;
+  /** Category of the same type that takes over its transactions; none = uncategorized. */
+  replacementId?: string | null;
+};
+
 export type ListCategoriesParams = {
+  status?: CategoryStatus;
   page?: string;
   limit?: string;
   type?: CategoryType;

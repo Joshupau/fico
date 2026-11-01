@@ -99,14 +99,15 @@ export default function CategoryModal({ open, onClose, category }: { open: boole
 
   const onSubmit = (data: CategoryFormValues) => {
     if (isEdit && category) {
-      saveExcludeFromBaseline(category.id, data, wasExcluded)
       updateCategory({
         id: category.id,
         name: data.name,
         color: data.color,
         icon: data.icon,
       }, {
-        onSuccess: () => {
+        // Editing a default category saves it as the user's own copy, which has a new id.
+        onSuccess: (response) => {
+          saveExcludeFromBaseline(response?.data?.id ?? category.id, data, wasExcluded)
           toast.success('Category updated successfully')
           refetch()
           form.reset()
