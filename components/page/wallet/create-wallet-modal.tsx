@@ -424,7 +424,7 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
 
                 <div>
                   <p className={label}>Interest is paid</p>
-                  <div role="group" aria-label="Interest payout" className="grid grid-cols-4 gap-1 rounded-2xl bg-secondary p-1">
+                  <div role="group" aria-label="Interest payout" className="grid grid-cols-3 gap-1 rounded-2xl bg-secondary p-1 sm:grid-cols-5">
                     {PAYOUT_OPTIONS.map((option) => (
                       <button
                         key={option.value}

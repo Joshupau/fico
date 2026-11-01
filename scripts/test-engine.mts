@@ -114,6 +114,34 @@ for (const [name, args] of [
   const r = await rpc(name, args as object)
   check(`rpc ${name}`, !r.error, r.error)
 }
+// Weekly savings interest: each of 7 Manila days earns rate/365 on that day's closing balance, minus tax.
+// The week starts 8 days ago (so it has closed). 10,000 for its first 4 days; 5,000 more lands at
+// 11 PM on day 5, so days 5-7 close at 15,000. 3% a year, 20% tax.
+const manilaDay = (offset: number) => `((now() at time zone 'Asia/Manila')::date + ${offset})::timestamp`
+await db.exec(`set session_replication_role = replica`)
+const sv = (await db.query<{ id: string }>(
+  `insert into public.wallets (owner_id, name, type, balance, interest_rate, interest_payout, interest_tax_rate, interest_last_posted_at)
+   values ('${UID}', 'GoTyme Savings', 'savings', 15000, 3, 'weekly', 20, ${manilaDay(-8)} at time zone 'Asia/Manila') returning id`
+)).rows[0].id
+await db.query(
+  `insert into public.transactions (owner_id, wallet_id, amount, type, description, date, status)
+   values ('${UID}', $1, 5000, 'income', 'top up', (${manilaDay(-4)} + interval '23 hours') at time zone 'Asia/Manila', 'completed')`,
+  [sv]
+)
+await db.exec(`set session_replication_role = origin`)
+await db.query(`select public.post_savings_interest()`)
+const interest = (await db.query<{ amount: number; balance: number; earned: number }>(
+  `select t.amount::float as amount, w.balance::float as balance, w.total_interest_earned::float as earned
+   from public.transactions t join public.wallets w on w.id = t.wallet_id
+   where t.wallet_id = $1 and 'interest' = any(t.tags)`,
+  [sv]
+)).rows
+const expected = Math.round(((4 * 10000 + 3 * 15000) * 0.03) / 365 * 0.8 * 100) / 100
+check('weekly interest counts each day on its own balance', interest.length === 1 && interest[0].amount === expected && interest[0].earned === expected && interest[0].balance === 15000 + expected, { interest, expected })
+await db.query(`select public.post_savings_interest()`)
+const again = (await db.query<{ n: number }>(`select count(*)::int as n from public.transactions where wallet_id = $1 and 'interest' = any(tags)`, [sv])).rows[0].n
+check('weekly interest posts once per week', again === 1, again)
+
 const outbox = await db.query<{ kind: string }>('select kind from public._sync_outbox order by seq')
 console.log('outbox entries:', outbox.rows.length)
 console.log(failures ? `${failures} FAILURES` : 'ALL PASSED')

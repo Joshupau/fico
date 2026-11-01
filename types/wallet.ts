@@ -1,5 +1,5 @@
 export type WalletType = 'bank' | 'savings' | 'cash' | 'ewallet' | 'credit_card' | 'other';
-export type InterestPayout = 'monthly' | 'quarterly' | 'annually' | 'maturity';
+export type InterestPayout = 'weekly' | 'monthly' | 'quarterly' | 'annually' | 'maturity';
 export type WalletStatus = 'active' | 'archived';
 
 export type CreateWalletData = {

@@ -23,6 +23,7 @@ export const SAVINGS_PRESETS: SavingsPreset[] = [
 ]
 
 export const PAYOUT_OPTIONS: { value: InterestPayout; label: string }[] = [
+  { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'quarterly', label: 'Quarterly' },
   { value: 'annually', label: 'Yearly' },

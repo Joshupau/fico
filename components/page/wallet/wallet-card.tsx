@@ -43,6 +43,7 @@ const TYPE_ICON = {
 } as const
 
 const PAYOUT_WORD: Record<string, string> = {
+  weekly: 'weekly',
   monthly: 'monthly',
   quarterly: 'quarterly',
   annually: 'yearly',
