@@ -14,6 +14,7 @@ export const budgetOverlapsMonth = (
   const start = budget.startDate ? new Date(budget.startDate) : null
   const end = budget.endDate ? new Date(budget.endDate) : null
   if (start && start >= monthEnd) return false
-  if (end && end < monthStart) return false
+  // A period ending exactly at midnight on the 1st belongs to the month before.
+  if (end && end <= monthStart) return false
   return true
 }

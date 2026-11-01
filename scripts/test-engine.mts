@@ -159,7 +159,7 @@ await db.query(`select public.post_savings_interest()`)
 const again = (await db.query<{ n: number }>(`select count(*)::int as n from public.transactions where wallet_id = $1 and 'interest' = any(tags)`, [sv])).rows[0].n
 check('weekly interest posts once per week', again === 1, again)
 
-// Monthly budgets move on to the current month by themselves once their period ends.
+// Monthly budgets keep each finished month as its own row and carry on in a new one.
 await db.exec(`set session_replication_role = replica`)
 const oldBudget = (await db.query<{ id: string }>(
   `insert into public.budgets (owner_id, name, amount, spent, period, start_date, end_date, status, category_ids)
@@ -171,14 +171,18 @@ const oldBudget = (await db.query<{ id: string }>(
 await db.exec(`set session_replication_role = origin`)
 const bsum = await rpc('budgets_summary')
 check('budgets_summary runs with the period advance', !bsum.error, bsum.error)
-const moved = (await db.query<{ ok: boolean; status: string; spent: number }>(
-  `select start_date = date_trunc('month', now() at time zone 'Asia/Manila') at time zone 'Asia/Manila'
-      and end_date = (date_trunc('month', now() at time zone 'Asia/Manila') + interval '1 month') at time zone 'Asia/Manila' as ok,
-      status::text as status, spent::float as spent
-   from public.budgets where id = $1`,
+const chain = (await db.query<{ months_ago: number; linked: boolean; first: boolean }>(
+  `select round(extract(epoch from (date_trunc('month', now() at time zone 'Asia/Manila') - (start_date at time zone 'Asia/Manila'))) / 86400 / 30)::int as months_ago,
+          next_budget_id is not null as linked, id = $1 as first
+   from public.budgets where name = 'Old month' order by start_date`,
   [oldBudget]
-)).rows[0]
-check('ended monthly budget advances to this month and recounts', moved.ok && moved.spent < 999, moved)
+)).rows
+check('ended budget keeps its month and each later month gets a linked row',
+  chain.length === 4 && chain[0].first && chain[0].months_ago === 3 && chain[3].months_ago === 0 &&
+  chain.slice(0, 3).every((r) => r.linked) && !chain[3].linked, chain)
+const bsum2 = await rpc('budgets_summary')
+const chainAgain = (await db.query<{ n: number }>(`select count(*)::int as n from public.budgets where name = 'Old month'`)).rows[0].n
+check('advancing again adds nothing', !bsum2.error && chainAgain === 4, chainAgain)
 
 const outbox = await db.query<{ kind: string }>('select kind from public._sync_outbox order by seq')
 console.log('outbox entries:', outbox.rows.length)
