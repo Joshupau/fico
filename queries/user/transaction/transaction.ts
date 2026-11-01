@@ -134,8 +134,9 @@ export const useListTransactions = (params?: ListTransactionsParams) => {
 // The Activity list, one page at a time. Kept as one infinite query so a new, edited or deleted
 // transaction refetches every loaded page together: with each page as its own query, scrolling
 // past the first page left it inactive, so a new transaction never showed until a reload.
-export const useInfiniteTransactions = (params: Omit<ListTransactionsParams, 'page'>) => {
+export const useInfiniteTransactions = (params: Omit<ListTransactionsParams, 'page'>, enabled = true) => {
   return useInfiniteQuery({
+    enabled,
     queryKey: ["transactions", "infinite", params],
     queryFn: ({ pageParam }) => listTransactions({ ...params, page: String(pageParam) }),
     initialPageParam: 0,

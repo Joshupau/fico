@@ -107,17 +107,6 @@ export default function DashboardPage() {
   const categories = useMemo(() => normalizeCategoryData(categoriesResponse?.data).slice(0, 4), [categoriesResponse])
   const categoryTotal = useMemo(() => getCategoryTotal(categories), [categories])
 
-  const insight = ((statsResponse?.data as any)?.topCategory as any)?.insight as string | undefined
-  const note = useMemo(() => {
-    if (insight) return insight
-    if (categories.length > 0 && categoryTotal > 0) {
-      const top = categories[0]
-      const share = Math.round((top.amount / categoryTotal) * 100)
-      return `Most of your spending ${periodPhrase} went to ${top.name}, about ${share}% of the total.`
-    }
-    return 'Add your first transaction and I will start spotting patterns for you.'
-  }, [insight, categories, categoryTotal, periodPhrase])
-
   const transactions = useMemo(
     () =>
       asList(transactionsResponse?.data, ['items', 'transactions']).map((t: any, index: number) => ({
@@ -129,6 +118,22 @@ export default function DashboardPage() {
       })),
     [transactionsResponse]
   )
+
+  const insight = ((statsResponse?.data as any)?.topCategory as any)?.insight as string | undefined
+  const note = useMemo(() => {
+    if (insight) return insight
+    if (categories.length > 0 && categoryTotal > 0) {
+      const top = categories[0]
+      const share = Math.round((top.amount / categoryTotal) * 100)
+      return `Most of your spending ${periodPhrase} went to ${top.name}, about ${share}% of the total.`
+    }
+    // Latest activity isn't limited to the period, so it tells a new account from a quiet period (e.g. the 1st).
+    if (transactions.length > 0) {
+      if (income > 0) return `No spending yet ${periodPhrase}, and ${formatMoney(income, currency, !showAmounts)} has come in so far.`
+      return `Nothing yet ${periodPhrase}. Add something and I will pick up where you left off.`
+    }
+    return 'Add your first transaction and I will start spotting patterns for you.'
+  }, [insight, categories, categoryTotal, periodPhrase, transactions.length, income, currency, showAmounts])
 
   const dueBills = useMemo(() => {
     const events = (billsResponse?.data as any)?.calendarEvents

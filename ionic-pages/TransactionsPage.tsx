@@ -17,6 +17,17 @@ import toast from 'react-hot-toast'
 import { exportTransactionsCsv } from '@/utils/export-data'
 
 // Helper function to convert filter state to API params
+/** Where the selected calendar period begins, or null for "all". */
+const periodStart = (dateRange: FilterState['dateRange']): Date | null => {
+  if (!dateRange || dateRange === 'all') return null
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (dateRange === 'week') start.setDate(start.getDate() - ((start.getDay() + 6) % 7)) // Monday
+  if (dateRange === 'month') return new Date(now.getFullYear(), now.getMonth(), 1)
+  if (dateRange === 'year') return new Date(now.getFullYear(), 0, 1)
+  return start
+}
+
 const convertFilterToParams = (filters: FilterState): ListTransactionsParams => {
   const params: ListTransactionsParams = {}
 
@@ -34,13 +45,9 @@ const convertFilterToParams = (filters: FilterState): ListTransactionsParams => 
 
   // Calendar periods (this month = from the 1st), matching the summary card. Full timestamps
   // so "today" and the last day of the range are not cut off at midnight.
-  if (filters.dateRange && filters.dateRange !== 'all') {
+  const start = periodStart(filters.dateRange)
+  if (start) {
     const now = new Date()
-    let start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    if (filters.dateRange === 'week') start.setDate(start.getDate() - ((start.getDay() + 6) % 7)) // Monday
-    if (filters.dateRange === 'month') start = new Date(now.getFullYear(), now.getMonth(), 1)
-    if (filters.dateRange === 'year') start = new Date(now.getFullYear(), 0, 1)
-
     params.startDate = start.toISOString()
     params.endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString()
   }
@@ -55,6 +62,31 @@ const convertFilterToParams = (filters: FilterState): ListTransactionsParams => 
 
   return params
 }
+/**
+ * All loaded pages in order, shaped for the list. A row can sit on two pages when a change shifts
+ * them, so keep its first copy. Rows from Supabase have no `title`: use the category as the headline
+ * and the note as the detail.
+ */
+const toTransactionItems = (pages: any[] | undefined): TransactionItem[] => {
+  const seen = new Set<string>()
+  return (pages ?? [])
+    .flatMap((pageResponse: any) => (Array.isArray(pageResponse?.data) ? pageResponse.data : pageResponse?.data?.items || []))
+    .filter((t: any) => {
+      const id = String(t._id ?? t.id)
+      if (seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+    .map((t: any) => ({
+      ...t,
+      id: String(t._id ?? t.id),
+      title: t.title || t.category?.name || (t.type === 'transfer' ? 'Transfer' : t.description) || 'Transaction',
+      description: t.description ?? '',
+      category: t.category?.name,
+      walletId: t.walletId ? String(t.walletId) : t.wallet?._id ? String(t.wallet._id) : undefined,
+    }))
+}
+
 const PERIOD_PHRASE: Record<NonNullable<FilterState['dateRange']>, string> = {
   today: 'today',
   week: 'this week',
@@ -103,35 +135,20 @@ export function TransactionsPage() {
   const { mutate: deleteTransaction, isPending: isDeleting } = useDeleteTransaction()
   const { mutate: updateTransaction, isPending: isUpdatingTransaction } = useUpdateTransaction()
   
-  // All loaded pages in order. A row can sit on two pages when a change shifts them, so keep its first copy.
-  const allTransactions = useMemo(() => {
-    const seen = new Set<string>()
-    return (pagesData?.pages ?? [])
-      .flatMap((pageResponse: any) => (Array.isArray(pageResponse?.data) ? pageResponse.data : pageResponse?.data?.items || []))
-      .filter((t: any) => {
-        const id = String(t._id ?? t.id)
-        if (seen.has(id)) return false
-        seen.add(id)
-        return true
-      })
-  }, [pagesData])
+  const items = useMemo(() => toTransactionItems(pagesData?.pages), [pagesData])
 
-  // Rows from Supabase have no `title`: use the category as the headline and the note as the detail.
-  const items: TransactionItem[] = useMemo(
-    () =>
-      allTransactions.map((t: any) => ({
-        ...t,
-        id: String(t._id ?? t.id),
-        title: t.title || t.category?.name || (t.type === 'transfer' ? 'Transfer' : t.description) || 'Transaction',
-        description: t.description ?? '',
-        category: t.category?.name,
-        walletId: t.walletId ? String(t.walletId) : t.wallet?._id ? String(t.wallet._id) : undefined,
-      })),
-    [allTransactions]
-  )
+  // An empty period (say, the 1st of the month) shows what came before it instead of a blank page.
+  // The totals above stay on the selected period.
+  const start = periodStart(filters.dateRange)
+  const showEarlier = !!start && !isLoading && items.length === 0
+  const earlierParams = { ...apiParams, startDate: undefined, endDate: start ? new Date(start.getTime() - 1).toISOString() : undefined }
+  const earlier = useInfiniteTransactions(earlierParams, showEarlier)
+  const earlierItems = useMemo(() => toTransactionItems(earlier.data?.pages), [earlier.data])
+  const listingEarlier = showEarlier && earlierItems.length > 0
 
   const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
+    const source = listingEarlier ? earlier : { hasNextPage, isFetchingNextPage, fetchNextPage }
+    if (source.hasNextPage && !source.isFetchingNextPage) void source.fetchNextPage()
   }
 
   const handleStartInlineEdit = (transaction: TransactionItem) => {
@@ -253,11 +270,16 @@ export function TransactionsPage() {
             </div>
 
             <div className="min-w-0 lg:order-1">
+              {listingEarlier && (
+                <p className="mb-3 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-ios">
+                  Nothing yet {PERIOD_PHRASE[filters.dateRange ?? 'month']}. Here is what came before.
+                </p>
+              )}
               <TransactionList
-                transactions={items}
-                isLoading={isLoading}
-                hasMore={!!hasNextPage}
-                isLoadingMore={isFetchingNextPage}
+                transactions={listingEarlier ? earlierItems : items}
+                isLoading={isLoading || (showEarlier && earlier.isLoading)}
+                hasMore={listingEarlier ? !!earlier.hasNextPage : !!hasNextPage}
+                isLoadingMore={listingEarlier ? earlier.isFetchingNextPage : isFetchingNextPage}
                 walletNames={walletNames}
                 walletTypes={walletTypes}
                 onTransactionClick={handleStartInlineEdit}
