@@ -22,6 +22,7 @@ export type ListTransactionsParams = {
   page?: string;
   limit?: string;
   walletId?: string;
+  /** A category id, or 'none' for uncategorized income and expenses. */
   categoryId?: string;
   type?: TransactionType;
   startDate?: string;

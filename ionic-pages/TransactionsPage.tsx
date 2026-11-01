@@ -60,6 +60,10 @@ const convertFilterToParams = (filters: FilterState): ListTransactionsParams => 
     params.tags = filters.tags
   }
 
+  if (filters.categoryId) {
+    params.categoryId = filters.categoryId
+  }
+
   return params
 }
 /**

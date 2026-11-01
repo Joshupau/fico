@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Check, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useTransactionTags } from '@/queries/user/transaction/transaction'
+import { useListCategories } from '@/queries/user/category/categories'
 
 export interface FilterState {
   type?: 'income' | 'expense' | 'transfer' | 'all'
@@ -10,6 +11,8 @@ export interface FilterState {
   search?: string
   dateRange?: 'today' | 'week' | 'month' | 'year' | 'all'
   walletId?: string
+  /** A category id, or 'none' for uncategorized. */
+  categoryId?: string
   tags?: string[]
 }
 
@@ -18,6 +21,7 @@ export const DEFAULT_FILTERS: FilterState = {
   status: 'all',
   dateRange: 'month',
   walletId: '',
+  categoryId: '',
   search: '',
   tags: [],
 }
@@ -73,7 +77,20 @@ export function TransactionFilters({ value, onChange, wallets }: TransactionFilt
   const { data: tagsResponse } = useTransactionTags()
   const availableTags = toTagList(tagsResponse).map((tag: any) => (typeof tag === 'string' ? tag : tag?.tag)).filter(Boolean) as string[]
 
+  // Money in shows income categories, money out shows expense ones; otherwise all of them.
+  const categoryType = value.type === 'income' || value.type === 'expense' ? value.type : undefined
+  const { data: categoriesResponse } = useListCategories({ limit: '200', ...(categoryType && { type: categoryType }) })
+  const categories = ((categoriesResponse as any)?.data?.items ?? []) as { id: string; name: string; color?: string; type?: string }[]
+
   const set = (patch: Partial<FilterState>) => onChange({ ...value, ...patch })
+  const setType = (type: NonNullable<FilterState['type']>) => {
+    // A category of the other kind would leave the list empty, so drop it when the type changes.
+    const keepCategory =
+      type === 'all' ||
+      (value.categoryId === 'none' && type !== 'transfer') ||
+      categories.find((c) => c.id === value.categoryId)?.type === type
+    set({ type, ...(keepCategory ? {} : { categoryId: '' }) })
+  }
   const toggleTag = (tag: string) => {
     const current = value.tags ?? []
     set({ tags: current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag] })
@@ -83,6 +100,7 @@ export function TransactionFilters({ value, onChange, wallets }: TransactionFilt
   const isFiltered =
     (value.type && value.type !== 'all') ||
     !!value.walletId ||
+    !!value.categoryId ||
     !!value.search ||
     moreCount > 0 ||
     (value.dateRange ?? 'month') !== DEFAULT_FILTERS.dateRange
@@ -114,7 +132,7 @@ export function TransactionFilters({ value, onChange, wallets }: TransactionFilt
             key={option.value}
             type="button"
             aria-pressed={(value.type ?? 'all') === option.value}
-            onClick={() => set({ type: option.value })}
+            onClick={() => setType(option.value)}
             className={`rounded-full py-2 text-xs font-semibold transition-colors sm:text-sm ${
               (value.type ?? 'all') === option.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
             }`}
@@ -161,6 +179,39 @@ export function TransactionFilters({ value, onChange, wallets }: TransactionFilt
                 {wallet.name || 'Wallet'}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Category */}
+      {value.type !== 'transfer' && (
+        <div>
+          <p className={labelClass}>Category</p>
+          <div className={scrollRow} role="group" aria-label="Category">
+            <button type="button" aria-pressed={!value.categoryId} onClick={() => set({ categoryId: '' })} className={chip(!value.categoryId)}>
+              All categories
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                aria-pressed={value.categoryId === category.id}
+                onClick={() => set({ categoryId: value.categoryId === category.id ? '' : category.id })}
+                className={`${chip(value.categoryId === category.id)} flex items-center gap-1.5`}
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: category.color || 'currentColor' }} aria-hidden="true" />
+                {category.name}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-pressed={value.categoryId === 'none'}
+              onClick={() => set({ categoryId: value.categoryId === 'none' ? '' : 'none' })}
+              className={`${chip(value.categoryId === 'none')} flex items-center gap-1.5`}
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full border border-dashed border-muted-foreground" aria-hidden="true" />
+              Uncategorized
+            </button>
           </div>
         </div>
       )}

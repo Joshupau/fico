@@ -95,7 +95,9 @@ const listTransactions = async (params: ListTransactionsParams) => {
       .select('*, wallet:wallets!transactions_wallet_id_fkey(name,type,currency), category:categories(name,type,icon,color), to_wallet:wallets!transactions_to_wallet_id_fkey(name,type,currency)', { count: 'exact' })
       .eq('status', params.status ?? 'completed');
     if (params.walletId) query = query.eq('wallet_id', params.walletId);
-    if (params.categoryId) query = query.eq('category_id', params.categoryId);
+    // 'none' = uncategorized income and expenses (transfers never carry a category).
+    if (params.categoryId === 'none') query = query.is('category_id', null).neq('type', 'transfer');
+    else if (params.categoryId) query = query.eq('category_id', params.categoryId);
     if (params.type) query = query.eq('type', params.type);
     if (params.startDate) query = query.gte('date', params.startDate);
     if (params.endDate) query = query.lte('date', params.endDate);
