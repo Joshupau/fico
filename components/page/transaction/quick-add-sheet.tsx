@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Delete, Plus, X } from 'lucide-react'
+import { CalendarDays, Delete, Plus, TriangleAlert, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { useCreateTransaction, useUpdateTransaction } from '@/queries/user/transaction/transaction'
@@ -97,6 +97,7 @@ export function QuickAddSheet({
   const [feeOn, setFeeOn] = useState(false)
   const [feeText, setFeeText] = useState('')
   const [excludeFromBaseline, setExcludeFromBaseline] = useState(false)
+  const [keepBalance, setKeepBalance] = useState(false)
 
   // Start fresh (or from the transaction being edited / pre-filled data) each time it opens.
   useEffect(() => {
@@ -112,6 +113,7 @@ export function QuickAddSheet({
     setFeeOn(fee > 0)
     setFeeText(fee > 0 ? String(fee) : '')
     setExcludeFromBaseline(transaction?.excludeFromBaseline ?? false)
+    setKeepBalance(transaction?.affectsBalance === false)
     setWalletId(source?.walletId ?? initialWalletId ?? (isEdit ? '' : readLastWallet()))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, transaction?.id])
@@ -211,6 +213,8 @@ export function QuickAddSheet({
         attachments: transaction.attachments,
         status: transaction.status,
         excludeFromBaseline: type === 'expense' ? excludeFromBaseline : undefined,
+        toWalletId: type === 'transfer' ? toWalletId : undefined,
+        affectsBalance: !keepBalance,
       }
       updateTransaction(update, {
         onSuccess: () => finish('Changes saved'),
@@ -228,12 +232,27 @@ export function QuickAddSheet({
       ...(type === 'transfer' ? { toWalletId } : {}),
       ...(date ? { date } : {}),
       ...(fee > 0 ? { serviceFee: fee } : {}),
+      ...(keepBalance ? { affectsBalance: false } : {}),
     }
     createTransaction(payload, {
       onSuccess: () => finish('Saved!'),
       onError: (error) => console.error('Error creating transaction:', error),
     })
   }
+
+  // What saving does to the wallet balance, shown under the "Don't change wallet balance" toggle.
+  const wasKept = transaction?.affectsBalance === false
+  const balanceNote = !isEdit
+    ? keepBalance
+      ? 'No wallet balance will change. It still counts in your spending, categories and reports.'
+      : ''
+    : keepBalance
+      ? wasKept
+        ? 'No wallet balance changes, whatever you edit here.'
+        : 'Saving undoes this transaction\u2019s effect on the wallet balance, once. It still counts in your spending and reports.'
+      : wasKept
+        ? 'Saving applies this amount to the wallet balance, once.'
+        : ''
 
   const amountTone = type === 'income' ? 'text-success' : type === 'transfer' ? 'text-primary' : 'text-foreground'
   const typeWord = type === 'income' ? 'income' : type === 'transfer' ? 'transfer' : 'expense'
@@ -422,6 +441,24 @@ export function QuickAddSheet({
                 )}
               </div>
             )}
+
+            <div>
+              <button
+                type="button"
+                aria-pressed={keepBalance}
+                onClick={() => setKeepBalance((v) => !v)}
+                className={`${chip(keepBalance)} flex items-center gap-1.5`}
+              >
+                {!keepBalance && <Plus className="h-4 w-4" />}
+                Don&apos;t change wallet balance
+              </button>
+              {balanceNote && (
+                <p className="mt-1.5 flex items-start gap-1.5 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
+                  <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0 text-warning" />
+                  {balanceNote}
+                </p>
+              )}
+            </div>
 
             {isEdit && type === 'expense' && (
               <div>

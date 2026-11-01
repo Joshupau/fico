@@ -2,7 +2,7 @@
 
 import { EmptyState } from '@/components/peacock-mascot'
 import { useEffect, useMemo, useRef } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Clock, CreditCard, MoreVertical, RotateCcw, Shuffle, X } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Clock, CreditCard, MoreVertical, RotateCcw, Shuffle, WalletMinimal, X } from 'lucide-react'
 import { format, isToday, isYesterday } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,6 +33,8 @@ export interface TransactionItem {
   attachments?: string[]
   billId?: string
   excludeFromBaseline?: boolean
+  /** False when the transaction doesn't change any wallet balance. */
+  affectsBalance?: boolean
 }
 
 interface TransactionListProps {
@@ -223,6 +225,15 @@ export function TransactionList({
                               <span className="flex items-center gap-0.5 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
                                 <X className="h-3 w-3" />
                                 Cancelled
+                              </span>
+                            )}
+                            {transaction.affectsBalance === false && (
+                              <span
+                                title="Doesn't change the wallet balance"
+                                className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
+                              >
+                                <WalletMinimal className="h-3 w-3" />
+                                No balance change
                               </span>
                             )}
                             {walletName && (

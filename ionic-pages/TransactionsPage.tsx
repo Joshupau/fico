@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 
-import { Download, SlidersHorizontal, Upload } from 'lucide-react'
+import { CalendarRange, Download, SlidersHorizontal, Upload } from 'lucide-react'
 import { IonContent, IonPage } from '@ionic/react'
 import { TransactionStats } from '@/components/page/transaction/transaction-stats'
 import { DEFAULT_FILTERS, FilterState, TransactionFilters } from '@/components/page/transaction/transaction-filter'
@@ -13,6 +13,7 @@ import { ListTransactionsParams } from '@/types/transaction'
 import { CreateTransactionModal } from '@/components/page/transaction/create-transaction-modal'
 import { TransactionImportModal } from '@/components/page/transaction/transaction-import-modal'
 import { DeleteTransactionDialog } from '@/components/page/transaction/delete-transaction-dialog'
+import { BulkBalanceSheet } from '@/components/page/transaction/bulk-balance-sheet'
 import toast from 'react-hot-toast'
 import { exportTransactionsCsv } from '@/utils/export-data'
 
@@ -107,6 +108,7 @@ export function TransactionsPage() {
   const [editingTransaction, setEditingTransaction] = useState<TransactionItem | null>(null)
   const [sheetEditingTransaction, setSheetEditingTransaction] = useState<TransactionItem | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showBulkBalance, setShowBulkBalance] = useState(false)
   const [transactionToDelete, setTransactionToDelete] = useState<TransactionItem | null>(null)
 
   const { data: walletsData, isLoading: walletsLoading } = useListWallets();
@@ -244,6 +246,15 @@ export function TransactionsPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setShowBulkBalance(true)}
+                aria-label="Change many at once"
+                className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-ios hover:border-primary/50"
+              >
+                <CalendarRange className="h-4 w-4 text-primary" />
+                <span className="hidden sm:inline">Bulk edit</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowImportModal(true)}
                 className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-ios hover:border-primary/50"
               >
@@ -306,6 +317,8 @@ export function TransactionsPage() {
         onClose={() => setShowImportModal(false)}
         onSuccess={() => refetch()}
       />
+
+      <BulkBalanceSheet open={showBulkBalance} onClose={() => setShowBulkBalance(false)} wallets={wallets as any[]} />
 
       <CreateTransactionModal
         open={!!sheetEditingTransaction}
