@@ -70,6 +70,19 @@ const bl = await from('bills')
   .range(0, 19)
 check('bills list', !bl.error && bl.count === 2 && bl.data[0].wallet.name === 'Cash', bl)
 
+// Bills page groups: still-due and settled bills page separately; archived bills can come back.
+const dueQ = await from('bills').select('id, payment_status', { count: 'exact' }).eq('status', 'active').in('payment_status', ['unpaid', 'overdue', 'partial'])
+const setQ = await from('bills').select('id, payment_status', { count: 'exact' }).eq('status', 'active').in('payment_status', ['paid', 'received'])
+check('due and settled bills list apart', dueQ.count === 1 && setQ.count === 1 && setQ.data[0].id === bill.data.id, { dueQ, setQ })
+const rent = await rpc('bills_create', { p_name: 'Rent', p_amount: 300, p_due_date: new Date().toISOString(), p_is_recurring: false, p_type: 'bill', p_wallet_id: w.data.id })
+await rpc('bills_archive', { p_id: rent.data.id })
+const archivedTx = await from('transactions').select('id').eq('bill_id', rent.data.id)
+check('archiving drops the pending transaction', archivedTx.data?.length === 0, archivedTx)
+const un = await rpc('bills_unarchive', { p_id: rent.data.id })
+const back = await from('bills').select('status, payment_status, transaction_id').eq('id', rent.data.id).single()
+const pendingTx = await from('transactions').select('id, status, amount').eq('bill_id', rent.data.id)
+check('bills_unarchive restores the bill and its pending transaction', !un.error && back.data?.status === 'active' && back.data?.payment_status === 'unpaid' && pendingTx.data?.length === 1 && pendingTx.data[0].status === 'pending' && pendingTx.data[0].id === back.data.transaction_id, { un, back, pendingTx })
+
 // planned items: plain table writes, as queries/user/planned/planned-items.ts makes them
 const qp = queued
 const pi = await from('planned_items').insert({ name: '13th month', type: 'income', amount_low: 20000, amount_high: 22000, date: '2026-12-15', status: 'expected', category_id: null, notes: null })

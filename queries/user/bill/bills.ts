@@ -4,7 +4,7 @@ import { axiosInstance } from "@/utils/axios-instance";
 import { supabase } from "@/utils/supabase-client";
 import { toCamelCase } from "@/utils/case-transform";
 import { handleApiError } from "@/utils/error-handler";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CreateBillData,
   UpdateBillData,
@@ -58,6 +58,9 @@ export const useCreateBill = () => {
   });
 };
 
+const SETTLED = ['paid', 'received'];
+const UNSETTLED = ['unpaid', 'overdue', 'partial'];
+
 // List Bills — simple filtered read, direct client call.
 const listBills = async (params: ListBillsParams) => {
   if (isSupabase()) {
@@ -65,8 +68,9 @@ const listBills = async (params: ListBillsParams) => {
     const limit = parseInt(params.limit ?? '20') || 20;
     let query = supabase
       .from('bills')
-      .select('*, category:categories(name,type,icon,color), wallet:wallets!bills_wallet_id_fkey(name,type)', { count: 'exact' })
-      .eq('status', params.status ?? 'active');
+      .select('*, category:categories(name,type,icon,color), wallet:wallets!bills_wallet_id_fkey(name,type)', { count: 'exact' });
+    if (params.status !== 'all') query = query.eq('status', params.status ?? 'active');
+    if (params.group) query = query.in('payment_status', params.group === 'settled' ? SETTLED : UNSETTLED);
     if (params.type) query = query.eq('type', params.type);
     if (params.paymentStatus) query = query.eq('payment_status', params.paymentStatus);
     if (params.isRecurring) query = query.eq('is_recurring', params.isRecurring === 'true');
@@ -74,7 +78,8 @@ const listBills = async (params: ListBillsParams) => {
     if (params.endDate) query = query.lte('due_date', params.endDate);
 
     const { data, count, error } = await query
-      .order('due_date', { ascending: true })
+      // Settled bills are history, so the latest comes first; bills still due run soonest first.
+      .order('due_date', { ascending: params.group !== 'settled' })
       .range(page * limit, page * limit + limit - 1);
     if (error) throw error;
     return {
@@ -87,7 +92,8 @@ const listBills = async (params: ListBillsParams) => {
       },
     };
   }
-  const response = await axiosInstance.get("/bill/list", { params });
+  const { status, group: _group, ...rest } = params;
+  const response = await axiosInstance.get("/bill/list", { params: status === 'all' ? rest : { ...rest, status } });
   return response.data;
 };
 
@@ -96,6 +102,20 @@ export const useListBills = (params?: ListBillsParams) => {
     queryKey: ["bills", params],
     queryFn: () => listBills(params || {}),
     enabled: true,
+  });
+};
+
+/** Pages through bills ("Load more"); each page is one listBills call. */
+export const useInfiniteBills = (params: Omit<ListBillsParams, 'page'>, enabled = true) => {
+  return useInfiniteQuery({
+    queryKey: ["bills", "infinite", params],
+    queryFn: ({ pageParam }) => listBills({ ...params, page: String(pageParam) }),
+    initialPageParam: 0,
+    getNextPageParam: (last: { data?: { totalPages?: number; currentPage?: number } }) => {
+      const current = Number(last?.data?.currentPage ?? 0);
+      return current + 1 < Number(last?.data?.totalPages ?? 0) ? current + 1 : undefined;
+    },
+    enabled,
   });
 };
 
@@ -234,6 +254,35 @@ export const useArchiveBill = () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["wallets"] });
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["bill-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["overdue-bills"] });
+    },
+    onError: (error) => {
+      handleApiError(error);
+    },
+  });
+};
+
+// Unarchive Bill — makes it active (unpaid) again and recreates its pending transaction.
+const unarchiveBill = async (data: { id: string }) => {
+  if (isSupabase()) {
+    const { error } = await supabase.rpc('bills_unarchive', { p_id: data.id });
+    if (error) throw error;
+    return { message: 'success' };
+  }
+  const response = await axiosInstance.post("/bill/update", { id: data.id, status: 'active' });
+  return response.data;
+};
+
+export const useUnarchiveBill = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { id: string }) => unarchiveBill(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bill-summary"] });
       queryClient.invalidateQueries({ queryKey: ["upcoming-bills"] });
       queryClient.invalidateQueries({ queryKey: ["overdue-bills"] });

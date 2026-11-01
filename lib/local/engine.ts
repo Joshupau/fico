@@ -222,7 +222,11 @@ function condition(column: string, op: string, value: unknown, p: Params, alias:
   }
   if (op === 'in') {
     const list = Array.isArray(value) ? value : parseListValue(String(value))
-    return list.length === 0 ? 'false' : `${col} = any(${p.push(list)})`
+    if (list.length === 0) return 'false'
+    // Sent as a Postgres array literal, not a JS array: the driver can't serialize arrays of enum
+    // types (bills.payment_status), and a literal casts to whatever the column's array type is.
+    const literal = `{${list.map((v) => `"${String(v).replace(/(["\\])/g, '\\$1')}"`).join(',')}}`
+    return `${col} = any(${p.push(literal)})`
   }
   if (op in OPERATORS) {
     let v = likeValue(op, value)

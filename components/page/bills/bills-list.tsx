@@ -22,6 +22,7 @@ import {
   TrendingUp,
   MinusCircle,
   CalendarCheck,
+  ArchiveRestore,
 } from 'lucide-react'
 import { formatDate, formatDueDateLabel, getDaysFromToday, formatMoney } from '@/utils/formatter'
 import { useSettingsStore } from '@/store/settings-store'
@@ -36,7 +37,12 @@ interface BillsListProps {
   onMarkUnpaid: (id: string) => void
   onEdit: (bill: Bill) => void
   onDelete: (bill: Bill) => void
+  onUnarchive?: (bill: Bill) => void
   processingBillId?: string | null
+  /** 'soonest' for bills still due, 'latest' for paid/received history. */
+  order?: 'soonest' | 'latest'
+  emptyTitle?: string
+  emptyText?: string
 }
 
 const paymentBadgeStyles: Record<PaymentStatus, string> = {
@@ -58,7 +64,8 @@ const paymentIcons: Record<PaymentStatus, React.ReactNode> = {
 const isSettledStatus = (status: Bill['paymentStatus']) => status === 'paid' || status === 'received'
 
 // Unpaid bills and not-yet-received income come first, then settled ones; each group by due date.
-const sortByDueDate = (items: Bill[]): Bill[] => {
+const sortByDueDate = (items: Bill[], order: 'soonest' | 'latest'): Bill[] => {
+  const direction = order === 'latest' ? -1 : 1
   return [...items].sort((left, right) => {
     const settledDiff = Number(isSettledStatus(left.paymentStatus)) - Number(isSettledStatus(right.paymentStatus))
     if (settledDiff !== 0) return settledDiff
@@ -70,7 +77,7 @@ const sortByDueDate = (items: Bill[]): Bill[] => {
     if (Number.isNaN(leftTime)) return 1
     if (Number.isNaN(rightTime)) return -1
 
-    return leftTime - rightTime
+    return (leftTime - rightTime) * direction
   })
 }
 
@@ -84,7 +91,11 @@ export function BillsList({
   onMarkUnpaid,
   onEdit,
   onDelete,
+  onUnarchive,
   processingBillId,
+  order = 'soonest',
+  emptyTitle = 'No entries found',
+  emptyText = 'Try adjusting your filters or create a new bill or income entry to get started.',
 }: BillsListProps) {
   const { currency, hideAmountsOnOpen } = useSettingsStore()
 
@@ -102,8 +113,8 @@ export function BillsList({
     return (
       <Card className="py-0">
         <CardContent className="p-12 text-center">
-          <p className="text-lg font-semibold text-foreground">No entries found</p>
-          <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters or create a new bill or income entry to get started.</p>
+          <p className="text-lg font-semibold text-foreground">{emptyTitle}</p>
+          <p className="text-sm text-muted-foreground mt-1">{emptyText}</p>
         </CardContent>
       </Card>
     )
@@ -111,10 +122,11 @@ export function BillsList({
 
   return (
     <div className="space-y-3">
-      {sortByDueDate(bills).map((bill) => {
+      {sortByDueDate(bills, order).map((bill) => {
         const dueDays = getDaysFromToday(bill.dueDate)
         const isIncome = bill.type === 'income'
         const isSettled = isSettledStatus(bill.paymentStatus)
+        const isArchived = bill.status === 'archived'
         const isOverdue = !isSettled && typeof dueDays === 'number' && dueDays < 0
         const showMarkPaid = !isSettled
         const markActionLabel = isIncome ? (showMarkPaid ? 'Mark Received' : 'Mark Unreceived') : (showMarkPaid ? 'Mark Paid' : 'Mark Unpaid')
@@ -200,14 +212,26 @@ export function BillsList({
                     {formatMoney(bill.amount, currency, hideAmountsOnOpen)}
                   </p>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant={showMarkPaid ? 'default' : 'outline'}
-                      onClick={() => (showMarkPaid ? onMarkPaid(bill.id) : onMarkUnpaid(bill.id))}
-                      disabled={processingBillId === bill.id}
-                      className="flex-1 sm:min-w-28"
-                    >
-                      {processingBillId === bill.id ? 'Saving...' : markActionLabel}
-                    </Button>
+                    {isArchived ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => onUnarchive?.(bill)}
+                        disabled={processingBillId === bill.id}
+                        className="flex-1 gap-1.5 sm:min-w-28"
+                      >
+                        <ArchiveRestore className="w-4 h-4" />
+                        {processingBillId === bill.id ? 'Saving...' : 'Unarchive'}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant={showMarkPaid ? 'default' : 'outline'}
+                        onClick={() => (showMarkPaid ? onMarkPaid(bill.id) : onMarkUnpaid(bill.id))}
+                        disabled={processingBillId === bill.id}
+                        className="flex-1 sm:min-w-28"
+                      >
+                        {processingBillId === bill.id ? 'Saving...' : markActionLabel}
+                      </Button>
+                    )}
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -220,13 +244,20 @@ export function BillsList({
                           <Pencil className="w-4 h-4" />
                           <span>Edit Details</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => requestAnimationFrame(() => onDelete(bill))}
-                          className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Archive Bill</span>
-                        </DropdownMenuItem>
+                        {isArchived ? (
+                          <DropdownMenuItem onClick={() => onUnarchive?.(bill)} className="gap-2">
+                            <ArchiveRestore className="w-4 h-4" />
+                            <span>Unarchive</span>
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => requestAnimationFrame(() => onDelete(bill))}
+                            className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Archive Bill</span>
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

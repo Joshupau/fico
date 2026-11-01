@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { IonPage, IonContent } from '@ionic/react'
 import toast from 'react-hot-toast'
 import { BillsHeader } from '@/components/page/bills/bills-header'
@@ -12,10 +12,11 @@ import { DeleteBillDialog } from '@/components/page/bills/delete-bill-dialog'
 import { MarkPaidDialog } from '@/components/page/bills/mark-paid-dialog'
 import {
   useBillSummary,
-  useListBills,
+  useInfiniteBills,
   useMarkBillPaid,
   useMarkBillUnpaid,
   useArchiveBill,
+  useUnarchiveBill,
   useOverdueBills,
   useUpcomingBills,
 } from '@/queries/user/bill/bills'
@@ -31,18 +32,15 @@ const initialFilters: BillsFilterState = {
   dueWindow: 'all',
 }
 
-const convertFilterToParams = (filters: BillsFilterState, page: number, limit: number): ListBillsParams => {
-  const params: ListBillsParams = {
-    page: String(page),
-    limit: String(limit),
-  }
+const SETTLED_STATUSES = ['paid', 'received']
+const PAGE_SIZE = 10
+
+/** Filters as list params, minus the page (each section pages on its own). */
+const convertFilterToParams = (filters: BillsFilterState): Omit<ListBillsParams, 'page'> => {
+  const params: Omit<ListBillsParams, 'page'> = { limit: String(PAGE_SIZE), status: filters.status }
 
   if (filters.paymentStatus !== 'all') {
     params.paymentStatus = filters.paymentStatus
-  }
-
-  if (filters.status !== 'all') {
-    params.status = filters.status
   }
 
   if (filters.type !== 'all') {
@@ -69,14 +67,13 @@ const convertFilterToParams = (filters: BillsFilterState, page: number, limit: n
   return params
 }
 
+const flattenPages = (pages: unknown[] | undefined) => (pages ?? []).flatMap((page) => normalizeBillsResponse(page))
+const totalOf = (pages: unknown[] | undefined) => (pages?.length ? extractPaginationMeta(pages[0]).totalItems : 0)
+
 export default function BillsPage() {
   const [filters, setFilters] = useState<BillsFilterState>(initialFilters)
-  const [page, setPage] = useState(0)
-  const [limit] = useState(10)
-  const [allBills, setAllBills] = useState<ReturnType<typeof normalizeBillsResponse>>([])
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [processingBillId, setProcessingBillId] = useState<string | null>(null)
-  
+
   const [billModalOpen, setBillModalOpen] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -84,12 +81,16 @@ export default function BillsPage() {
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false)
   const [markPaidBill, setMarkPaidBill] = useState<Bill | null>(null)
 
-  const apiParams = useMemo(() => convertFilterToParams(filters, page, limit), [filters, page, limit])
+  const baseParams = useMemo(() => convertFilterToParams(filters), [filters])
+  // Archiving resets a bill to unpaid, so archived bills get one list. Otherwise bills still due and
+  // paid/received ones page separately, so settled entries never push due ones behind "Load more".
+  const archivedView = filters.status === 'archived'
+  const statusFilter = filters.paymentStatus
+  const showDue = archivedView || statusFilter === 'all' || !SETTLED_STATUSES.includes(statusFilter)
+  const showSettled = !archivedView && (statusFilter === 'all' || SETTLED_STATUSES.includes(statusFilter))
 
-  const {
-    data: billsResponse,
-    isLoading: billsLoading,
-  } = useListBills(apiParams)
+  const due = useInfiniteBills(archivedView ? baseParams : { ...baseParams, group: 'due' }, showDue)
+  const settled = useInfiniteBills({ ...baseParams, group: 'settled' }, showSettled)
 
   const { data: summaryResponse, isLoading: summaryLoading } = useBillSummary()
   const { data: upcomingResponse, isLoading: upcomingLoading } = useUpcomingBills({ days: '7' })
@@ -98,34 +99,23 @@ export default function BillsPage() {
   const { mutate: markPaid } = useMarkBillPaid()
   const { mutate: markUnpaid } = useMarkBillUnpaid()
   const { mutate: archiveBill, isPending: isArchiving } = useArchiveBill()
+  const { mutate: unarchiveBill } = useUnarchiveBill()
 
-  const currentPageBills = useMemo(() => normalizeBillsResponse(billsResponse), [billsResponse])
-  const paginationMeta = useMemo(() => extractPaginationMeta(billsResponse), [billsResponse])
+  const dueBills = useMemo(() => (showDue ? flattenPages(due.data?.pages) : []), [due.data, showDue])
+  const settledBills = useMemo(() => (showSettled ? flattenPages(settled.data?.pages) : []), [settled.data, showSettled])
+  const dueTotal = showDue ? totalOf(due.data?.pages) : 0
+  const settledTotal = showSettled ? totalOf(settled.data?.pages) : 0
+  const allBills = useMemo(() => [...dueBills, ...settledBills], [dueBills, settledBills])
 
-  useEffect(() => {
-    if (page === 0) {
-      setAllBills(currentPageBills)
-      return
-    }
-
-    setAllBills((previous) => [...previous, ...currentPageBills])
-    setIsLoadingMore(false)
-  }, [currentPageBills, page])
-
-  useEffect(() => {
-    setPage(0)
-    setAllBills([])
-    setIsLoadingMore(false)
-  }, [filters])
-
-  const searchFilteredBills = useMemo(() => {
-    if (!filters.search.trim()) {
-      return allBills
-    }
-
-    const keyword = filters.search.trim().toLowerCase()
-    return allBills.filter((bill) => bill.name.toLowerCase().includes(keyword))
-  }, [allBills, filters.search])
+  const bySearch = useCallback(
+    (bills: Bill[]) => {
+      const keyword = filters.search.trim().toLowerCase()
+      return keyword ? bills.filter((bill) => bill.name.toLowerCase().includes(keyword)) : bills
+    },
+    [filters.search]
+  )
+  const visibleDue = useMemo(() => bySearch(dueBills), [bySearch, dueBills])
+  const visibleSettled = useMemo(() => bySearch(settledBills), [bySearch, settledBills])
 
   const summaryFromApi = useMemo(() => normalizeBillSummary(summaryResponse), [summaryResponse])
 
@@ -152,14 +142,6 @@ export default function BillsPage() {
 
   const upcomingCount = useMemo(() => extractItemsCount(upcomingResponse), [upcomingResponse])
   const overdueCount = useMemo(() => extractItemsCount(overdueResponse), [overdueResponse])
-
-  const hasMore = page + 1 < paginationMeta.totalPages
-
-  const handleLoadMore = () => {
-    if (isLoadingMore || !hasMore) return
-    setIsLoadingMore(true)
-    setPage((previous) => previous + 1)
-  }
 
   const handleMarkPaid = (id: string) => {
     const bill = allBills.find((b) => b.id === id) ?? null
@@ -202,6 +184,22 @@ export default function BillsPage() {
     )
   }
 
+  const handleUnarchive = (bill: Bill) => {
+    setProcessingBillId(bill.id)
+    unarchiveBill(
+      { id: bill.id },
+      {
+        onSuccess: () => {
+          toast.success(`${bill.name} is back in your bills`)
+          setProcessingBillId(null)
+        },
+        onError: () => {
+          setProcessingBillId(null)
+        },
+      }
+    )
+  }
+
   const handleEdit = (bill: Bill) => {
     setEditingBill(bill)
     setBillModalOpen(true)
@@ -220,6 +218,15 @@ export default function BillsPage() {
         setDeletingBill(null)
       },
     })
+  }
+
+  const actions = {
+    onMarkPaid: handleMarkPaid,
+    onMarkUnpaid: handleMarkUnpaid,
+    onEdit: handleEdit,
+    onDelete: handleDelete,
+    onUnarchive: handleUnarchive,
+    processingBillId,
   }
 
   return (
@@ -247,26 +254,46 @@ export default function BillsPage() {
               onReset={() => setFilters(initialFilters)}
             />
 
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-foreground">Ledger</h2>
-              <p className="text-sm text-muted-foreground">
-                {searchFilteredBills.length} of {paginationMeta.totalItems || searchFilteredBills.length} entr
-                {searchFilteredBills.length === 1 ? 'y' : 'ies'}
-              </p>
-            </div>
+            {showDue && (
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-foreground">{archivedView ? 'Archived' : 'To pay & receive'}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {visibleDue.length} of {dueTotal || visibleDue.length}
+                  </p>
+                </div>
+                <BillsList
+                  bills={visibleDue}
+                  isLoading={due.isLoading}
+                  hasMore={!!due.hasNextPage}
+                  isLoadingMore={due.isFetchingNextPage}
+                  onLoadMore={() => due.fetchNextPage()}
+                  {...actions}
+                  emptyTitle={archivedView ? 'No archived bills' : 'All caught up'}
+                  emptyText={archivedView ? 'Bills you archive show up here, ready to bring back.' : 'Nothing left to pay or receive with these filters.'}
+                />
+              </section>
+            )}
 
-            <BillsList
-              bills={searchFilteredBills}
-              isLoading={billsLoading && page === 0}
-              hasMore={hasMore}
-              isLoadingMore={isLoadingMore}
-              onLoadMore={handleLoadMore}
-              onMarkPaid={handleMarkPaid}
-              onMarkUnpaid={handleMarkUnpaid}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              processingBillId={processingBillId}
-            />
+            {showSettled && (settled.isLoading || settledBills.length > 0) && (
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-foreground">Paid & received</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {visibleSettled.length} of {settledTotal || visibleSettled.length}
+                  </p>
+                </div>
+                <BillsList
+                  bills={visibleSettled}
+                  isLoading={settled.isLoading}
+                  hasMore={!!settled.hasNextPage}
+                  isLoadingMore={settled.isFetchingNextPage}
+                  onLoadMore={() => settled.fetchNextPage()}
+                  {...actions}
+                  order="latest"
+                />
+              </section>
+            )}
           </div>
 
           <BillModal

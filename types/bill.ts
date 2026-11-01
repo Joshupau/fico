@@ -99,7 +99,10 @@ export type ListBillsParams = {
   isRecurring?: string;
   startDate?: string;
   endDate?: string;
-  status?: BillStatus;
+  /** 'all' lists active and archived together; left out, only active bills are listed. */
+  status?: BillStatus | 'all';
+  /** 'due' = still to pay or receive, 'settled' = paid or received. */
+  group?: 'due' | 'settled';
 };
 
 export type UpcomingBillsParams = {
