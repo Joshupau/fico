@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react'
 import BudgetModal from './budget-modal'
-import { useListBudgets, useUpdateBudget, useRolloverBudget } from '@/queries/user/budget/budgets'
+import { useListBudgets, useUpdateBudget, useRolloverBudget, useBudgetsMonthSpent } from '@/queries/user/budget/budgets'
 import { BudgetCard } from '@/components/page/budget/budget-card'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
@@ -100,6 +100,11 @@ export default function BudgetList({ month }: { month: Date }) {
       .map((budget, budgetIndex) => normalizeBudget(budget, budgetIndex))
   }, [budgetResponse, month])
 
+  // Yearly budgets also show what was spent in the month being viewed.
+  const hasYearly = budgets.some((b) => b.period === 'yearly')
+  const { data: monthSpent } = useBudgetsMonthSpent(month, hasYearly)
+  const monthLabel = month.toLocaleDateString(undefined, { month: 'long' })
+
   const handleRollover = (id: string) => {
     rolloverBudget(id, {
         onSuccess: () => {
@@ -156,6 +161,8 @@ export default function BudgetList({ month }: { month: Date }) {
                 {...b} 
                 onEdit={() => setSelectedBudget(b)} 
                 onRollover={() => handleRollover(b.id)}
+                monthSpent={b.period === 'yearly' ? monthSpent?.[b.id] : undefined}
+                monthLabel={monthLabel}
               />
             ) : (
                 <div key={b.id} className="p-4 bg-card border border-border rounded-2xl flex items-center justify-between group transition-all hover:border-primary/50">
@@ -169,6 +176,9 @@ export default function BudgetList({ month }: { month: Date }) {
                         <div>
                             <p className="font-bold text-foreground">{b.name}</p>
                             <p className="text-xs text-muted-foreground uppercase">{b.period} • {b.categories.length > 0 ? b.categories.map((c) => c.name).join(', ') : 'All expenses'}</p>
+                            {b.period === 'yearly' && monthSpent?.[b.id] !== undefined && (
+                              <p className="text-xs text-muted-foreground">In {monthLabel}: {formatMoney(monthSpent[b.id], currency, hideAmountsOnOpen)}</p>
+                            )}
                         </div>
                    </div>
                    

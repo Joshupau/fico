@@ -22,6 +22,9 @@ interface BudgetCardProps {
   onEdit?: (id: string) => void
   onArchive?: (id: string) => void
   onRollover?: (id: string) => void
+  /** Yearly budgets: spending inside the month being viewed. */
+  monthSpent?: number
+  monthLabel?: string
 }
 
 export function BudgetCard({
@@ -39,6 +42,8 @@ export function BudgetCard({
   onEdit,
   onArchive,
   onRollover,
+  monthSpent,
+  monthLabel,
 }: BudgetCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const { currency } = useSettingsStore()
@@ -132,10 +137,13 @@ export function BudgetCard({
       <div className="space-y-4">
         <div className="flex justify-between items-baseline">
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground/80 font-medium">SPENT</p>
+            <p className="text-xs text-muted-foreground/80 font-medium">{period === 'yearly' ? 'SPENT THIS YEAR' : 'SPENT'}</p>
             <p className={`text-2xl font-black ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
                {formatValue(spent)}
             </p>
+            {monthSpent !== undefined && (
+              <p className="text-xs font-medium text-muted-foreground">In {monthLabel}: {formatValue(monthSpent)}</p>
+            )}
           </div>
           <div className="text-right space-y-1">
             <p className="text-xs text-muted-foreground/80 font-medium uppercase">{isOverBudget ? 'Exceeded By' : 'Remaining'}</p>

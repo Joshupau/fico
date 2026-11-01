@@ -72,6 +72,21 @@ const listBudgets = async (params: ListBudgetsParams) => {
   return response.data;
 };
 
+/** Spending of each yearly budget inside one month: { [budgetId]: amount }. */
+export const useBudgetsMonthSpent = (month: Date, enabled = true) => {
+  const start = new Date(month.getFullYear(), month.getMonth(), 1);
+  const end = new Date(month.getFullYear(), month.getMonth() + 1, 1);
+  return useQuery({
+    queryKey: ["budgets", "month-spent", start.toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('budgets_month_spent', { p_start: start.toISOString(), p_end: end.toISOString() });
+      if (error) throw error;
+      return (data ?? {}) as Record<string, number>;
+    },
+    enabled,
+  });
+};
+
 export const useListBudgets = (params?: ListBudgetsParams) => {
   return useQuery({
     queryKey: ["budgets", params],

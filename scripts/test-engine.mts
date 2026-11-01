@@ -184,6 +184,17 @@ const bsum2 = await rpc('budgets_summary')
 const chainAgain = (await db.query<{ n: number }>(`select count(*)::int as n from public.budgets where name = 'Old month'`)).rows[0].n
 check('advancing again adds nothing', !bsum2.error && chainAgain === 4, chainAgain)
 
+// Yearly budgets report the spending inside one month next to the year's total.
+const yearly = await rpc('budgets_create', { p_name: 'Trips', p_amount: 30000, p_period: 'yearly', p_start_date: new Date(Date.now() - 40 * 864e5).toISOString(), p_category_ids: [] })
+const mStart = new Date(); mStart.setDate(1); mStart.setHours(0, 0, 0, 0)
+const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 1)
+const ms = await rpc('budgets_month_spent', { p_start: mStart.toISOString(), p_end: mEnd.toISOString() })
+const expectMonth = (await db.query<{ s: number }>(
+  `select coalesce(sum(amount), 0)::float as s from public.transactions where type = 'expense' and status = 'completed' and date >= $1 and date <= $2`,
+  [mStart.toISOString(), mEnd.toISOString()]
+)).rows[0].s
+check('budgets_month_spent gives a yearly budget its month', !yearly.error && !ms.error && Number(ms.data?.[yearly.data?.id]) === expectMonth, { yearly: yearly.error, ms, expectMonth })
+
 const outbox = await db.query<{ kind: string }>('select kind from public._sync_outbox order by seq')
 console.log('outbox entries:', outbox.rows.length)
 console.log(failures ? `${failures} FAILURES` : 'ALL PASSED')
