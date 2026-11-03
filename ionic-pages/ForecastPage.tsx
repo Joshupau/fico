@@ -9,10 +9,11 @@ import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Too
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { fieldClass } from '@/components/ui/form-sheet'
 import { useActiveBudgets, useAllWallets, useOpenBills, useTransactionsAfter } from '@/queries/user/forecast/forecast'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
-import { balancesAt, buildForecast, typicalFlow } from '@/utils/forecast'
+import { balancesAt, buildForecast, typicalFlow, type WalletSnapshot } from '@/utils/forecast'
 
 type Tab = 'forecast' | 'lookback'
 
@@ -33,7 +34,7 @@ export default function ForecastPage() {
   return (
     <IonPage>
       <IonContent className="bg-background text-foreground transition-colors duration-300">
-        <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-5xl px-4 pb-28 pt-8 sm:px-6 lg:px-8 lg:pb-8">
           <Button variant="outline" size="sm" onClick={() => history.push('/manage')} className="mb-4 gap-2 rounded-full">
             <ChevronLeft className="h-4 w-4" />
             Back
@@ -278,6 +279,18 @@ function LookBackView() {
     return { cash: sum(cash), cards: sum(cards), nowCash }
   }, [snapshots])
 
+  // Wallets that held money that day: active ones first, then ones archived since.
+  // Wallets added after the date are only named, so they don't read as empty rows.
+  const groups = useMemo(() => {
+    if (!snapshots) return null
+    const existed = snapshots.filter((r) => r.balance !== null)
+    return {
+      active: existed.filter((r) => r.wallet.status !== 'archived'),
+      archived: existed.filter((r) => r.wallet.status === 'archived'),
+      later: snapshots.filter((r) => r.balance === null && r.wallet.status !== 'archived').map((r) => r.wallet.name),
+    }
+  }, [snapshots])
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-border bg-card p-4">
@@ -290,7 +303,7 @@ function LookBackView() {
           value={dateText}
           max={todayInput()}
           onChange={(e) => setDateText(e.target.value)}
-          className="mt-2 block w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+          className={`mt-2 ${fieldClass}`}
         />
       </div>
 
@@ -298,7 +311,7 @@ function LookBackView() {
         <LoadError error={error} />
       ) : !asOf ? (
         <p className="text-sm text-muted-foreground">Pick a date to see your balances.</p>
-      ) : !snapshots || !totals ? (
+      ) : !snapshots || !totals || !groups ? (
         <Skeleton className="h-64 w-full rounded-2xl" />
       ) : (
         <>
@@ -313,30 +326,22 @@ function LookBackView() {
 
           <div className="rounded-2xl border border-border bg-card p-4">
             <p className="mb-3 text-sm font-semibold">Wallets on {asOf ? format(asOf, 'MMM d, yyyy') : ''}</p>
-            <ul className="divide-y divide-border">
-              {snapshots.map(({ wallet, balance }) => (
-                <li key={wallet.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{wallet.name}</p>
-                    <p className="text-xs capitalize text-muted-foreground">
-                      {wallet.type.replace('_', ' ')}
-                      {wallet.type === 'credit_card' ? ' · amount owed' : ''}
-                      {wallet.status === 'archived' ? ' · archived' : ''}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    {balance === null ? (
-                      <span className="text-xs text-muted-foreground">Not created yet</span>
-                    ) : (
-                      <>
-                        <p className="font-bold">{money(balance)}</p>
-                        <p className="text-xs text-muted-foreground">now {money(Number(wallet.balance))}</p>
-                      </>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {groups.active.length === 0 && groups.archived.length === 0 ? (
+              <p className="py-2 text-sm text-muted-foreground">None of your wallets existed yet on this date.</p>
+            ) : (
+              <SnapshotList rows={groups.active} money={money} />
+            )}
+            {groups.archived.length > 0 && (
+              <>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Archived since</p>
+                <SnapshotList rows={groups.archived} money={money} />
+              </>
+            )}
+            {groups.later.length > 0 && (
+              <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+                Added after this date: {groups.later.join(', ')}
+              </p>
+            )}
             <p className="mt-3 text-xs text-muted-foreground">
               Worked out by undoing every transaction after that date from today&apos;s balance. Balances you set or adjusted by hand
               (and interest) are not transactions, so they can make an older date a little off.
@@ -345,5 +350,27 @@ function LookBackView() {
         </>
       )}
     </div>
+  )
+}
+
+function SnapshotList({ rows, money }: { rows: WalletSnapshot[]; money: (n: number) => string }) {
+  return (
+    <ul className="divide-y divide-border">
+      {rows.map(({ wallet, balance }) => (
+        <li key={wallet.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+          <div className="min-w-0">
+            <p className="truncate font-medium">{wallet.name}</p>
+            <p className="text-xs capitalize text-muted-foreground">
+              {wallet.type.replace('_', ' ')}
+              {wallet.type === 'credit_card' ? ' · amount owed' : ''}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="font-bold">{money(balance ?? 0)}</p>
+            <p className="text-xs text-muted-foreground">now {money(Number(wallet.balance))}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
