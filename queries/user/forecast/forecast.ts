@@ -25,7 +25,7 @@ async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ da
   }
 }
 
-const TXN_COLUMNS = 'wallet_id,to_wallet_id,amount,type,service_fee,service_fee_deducted,bill_id,category_id,date';
+const TXN_COLUMNS = 'wallet_id,to_wallet_id,amount,type,service_fee,service_fee_deducted,bill_id,category_id,affects_balance,date';
 
 // Active and archived wallets, so a look-back still shows one you have since archived.
 export const useAllWallets = () =>

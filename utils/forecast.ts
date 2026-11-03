@@ -20,6 +20,8 @@ export type LedgerTxn = {
   serviceFeeDeducted?: boolean
   billId?: string | null
   categoryId?: string | null
+  /** False when the transaction was recorded without moving any wallet balance. */
+  affectsBalance?: boolean | null
   date: string
 }
 
@@ -51,6 +53,7 @@ const isCard = (type: string) => type === 'credit_card'
 
 /** Change to a wallet from one transaction, with "money in" positive. */
 const walletDelta = (txn: LedgerTxn, walletId: string): number => {
+  if (txn.affectsBalance === false) return 0
   const amount = Number(txn.amount) || 0
   if (txn.type === 'income') return txn.walletId === walletId ? amount : 0
   if (txn.type === 'expense') return txn.walletId === walletId ? -amount : 0
