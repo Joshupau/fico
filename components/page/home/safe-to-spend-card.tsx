@@ -5,7 +5,8 @@ import { format, parseISO } from 'date-fns'
 import { Pencil } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSettingsStore } from '@/store/settings-store'
-import type { SafeToSpend } from '@/utils/safe-to-spend'
+import { walletCounts, type SafeToSpend } from '@/utils/safe-to-spend'
+import { SafeToSpendWalletsSheet } from '@/components/page/home/safe-to-spend-wallets-sheet'
 
 const RING = 2 * Math.PI * 42
 
@@ -15,16 +16,23 @@ export function SafeToSpendBody({
   loading,
   money,
   spentToday,
+  wallets,
 }: {
   result: SafeToSpend | null
   loading: boolean
   money: (n: number) => string
   spentToday: number
+  wallets: any[]
 }) {
   const floor = useSettingsStore((s) => s.safeToSpendFloor)
-  const setFloor = useSettingsStore((s) => s.setSafeToSpendFloor)
-  const [editing, setEditing] = useState(false)
-  const [floorText, setFloorText] = useState('')
+  const rules = useSettingsStore((s) => s.safeToSpendWallets)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const active = wallets.filter((w) => w.status !== 'archived')
+  const countedWallets = active.filter((w) => walletCounts(w, rules?.[String(w._id ?? w.id ?? '')]))
+  const counted = countedWallets.map((w) => String(w.name))
+  const kept =
+    floor +
+    countedWallets.reduce((sum, w) => sum + Math.min(Number(w.balance) || 0, Number(rules?.[String(w._id ?? w.id ?? '')]?.min) || 0), 0)
 
   if (loading) return <Skeleton className="h-32 rounded-2xl" />
   if (!result) return <p className="py-4 text-center text-sm text-muted-foreground">Can't work this out right now. Check your connection and try again.</p>
@@ -36,12 +44,6 @@ export function SafeToSpendBody({
   const tone = result.short || over ? 'text-destructive' : share < 0.25 ? 'text-warning' : 'text-success'
   const centre = money(result.short ? Math.round(Math.abs(result.usable)) : Math.abs(left))
   const payday = result.nextIncomeDate ? parseISO(result.nextIncomeDate) : null
-
-  const saveFloor = () => {
-    const value = Number(floorText.replace(/[^0-9.]/g, ''))
-    setFloor(Number.isFinite(value) ? value : 0)
-    setEditing(false)
-  }
 
   return (
     <div>
@@ -73,6 +75,10 @@ export function SafeToSpendBody({
 
         <dl className="min-w-0 flex-1 space-y-1.5 text-sm">
           <div className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">{payday ? 'Until payday' : 'Until month end'}</dt>
+            <dd className="font-semibold tabular-nums text-foreground">{money(Math.max(0, Math.round(result.usable)))}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
             <dt className="text-muted-foreground">Per day</dt>
             <dd className="font-semibold tabular-nums text-foreground">{money(Math.round(result.perDay))}</dd>
           </div>
@@ -89,7 +95,7 @@ export function SafeToSpendBody({
           </div>
           {result.billsBefore > 0 && (
             <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Bills before then</dt>
+              <dt className="text-muted-foreground">Due before then</dt>
               <dd className="font-semibold tabular-nums text-foreground">{money(result.billsBefore)}</dd>
             </div>
           )}
@@ -102,53 +108,20 @@ export function SafeToSpendBody({
         </p>
       )}
 
-      <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-sm">
-        {editing ? (
-          <form
-            className="flex w-full items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              saveFloor()
-            }}
-          >
-            <label htmlFor="safe-floor" className="shrink-0 text-muted-foreground">
-              Keep aside
-            </label>
-            <input
-              id="safe-floor"
-              autoFocus
-              inputMode="decimal"
-              value={floorText}
-              onChange={(e) => setFloorText(e.target.value)}
-              placeholder="0"
-              className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-1.5 tabular-nums text-foreground outline-none focus:border-primary"
-            />
-            <button type="submit" className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
-              Save
-            </button>
-          </form>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setFloorText(floor > 0 ? String(floor) : '')
-              setEditing(true)
-            }}
-            className="flex w-full items-center justify-between gap-2 text-left text-muted-foreground hover:text-foreground"
-          >
-            <span>
-              {floor > 0 ? (
-                <>
-                  Keeping <span className="font-semibold text-foreground">{money(floor)}</span> aside
-                </>
-              ) : (
-                'Set money to keep aside'
-              )}
-            </span>
-            <Pencil className="h-4 w-4 shrink-0" />
-          </button>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={() => setSheetOpen(true)}
+        className="mt-3 flex w-full items-center justify-between gap-2 border-t border-border pt-3 text-left text-sm text-muted-foreground hover:text-foreground"
+      >
+        <span className="min-w-0">
+          <span className="block truncate">
+            From <span className="font-semibold text-foreground">{counted.length ? counted.join(', ') : 'no wallets'}</span>
+          </span>
+          {kept > 0 && <span className="block text-xs">Keeping {money(kept)} in minimums and aside</span>}
+        </span>
+        <Pencil className="h-4 w-4 shrink-0" />
+      </button>
+      <SafeToSpendWalletsSheet open={sheetOpen} onClose={() => setSheetOpen(false)} wallets={wallets} money={money} />
     </div>
   )
 }

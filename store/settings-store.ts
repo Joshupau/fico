@@ -12,6 +12,7 @@ type SettingsActions = {
   setDateFormat: (dateFormat: DateFormat) => void
   setOnboardingCompleted: (value: boolean) => void
   setSafeToSpendFloor: (value: number) => void
+  setSafeToSpendWallet: (walletId: string, rule: { include?: boolean; min?: number }) => void
   resetSettings: () => void
 }
 
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   dateFormat: 'MM/DD/YYYY',
   onboardingCompleted: false,
   safeToSpendFloor: 0,
+  safeToSpendWallets: {},
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -40,6 +42,10 @@ export const useSettingsStore = create<SettingsStore>()(
       setDateFormat: (dateFormat) => set({ dateFormat }),
       setOnboardingCompleted: (value) => set({ onboardingCompleted: value }),
       setSafeToSpendFloor: (value) => set({ safeToSpendFloor: Math.max(0, Number(value) || 0) }),
+      setSafeToSpendWallet: (walletId, rule) =>
+        set((state) => ({
+          safeToSpendWallets: { ...state.safeToSpendWallets, [walletId]: { ...state.safeToSpendWallets?.[walletId], ...rule } },
+        })),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {

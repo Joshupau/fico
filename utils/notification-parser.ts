@@ -23,7 +23,8 @@ export type NotificationSource = {
 }
 
 export const NOTIFICATION_SOURCES: NotificationSource[] = [
-  { walletName: 'GCash', packages: ['com.globe.gcash.android'], keywords: /\bg-?cash\b/i },
+  // GCash payment texts don't name GCash; the SMS sender does. Their wording is distinctive enough to stand in.
+  { walletName: 'GCash', packages: ['com.globe.gcash.android'], keywords: /\bg-?cash\b|\bhas been successfully processed on \d{2}-\d{2}-\d{2}\b/i },
   { walletName: 'Maya', packages: ['com.paymaya'], keywords: /\bmaya\b|\bpaymaya\b/i },
   { walletName: 'GoTyme', packages: ['com.gotyme.bank', 'ph.gotyme.app'], keywords: /\bgotyme\b/i },
   { walletName: 'BDO', packages: ['ph.com.bdo.mobile', 'com.bdo.mobilebanking'], keywords: /\bbdo\b/i },
@@ -49,7 +50,8 @@ export type ParsedNotification = ParsedTransaction & {
   reference?: string
 }
 
-const AMOUNT = /(?:php|₱|p)\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/i
+// "P1,500.00" or "P1000.00". The comma form needs at least one comma group, so "P1000.00" is not read as "P100".
+const AMOUNT = /(?:php|₱|\bp)\s?([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)(?![0-9,])/i
 
 // Direction words, most specific first. "cash in" moves money in; "cash out" moves it out.
 const INCOME_WORDS = /\b(received|you(?:'ve| have)? got|cash[\s-]?in|credited|deposit(?:ed)?|incoming|refund(?:ed)?|salary|nag-?receive)\b/i
@@ -58,7 +60,40 @@ const EXPENSE_WORDS = /\b(paid|payment|purchase|purchased|bought|cash[\s-]?out|w
 const STRONG_EXPENSE = /\b(paid|bought|spent|debited|charged|cash[\s-]?out|withdraw(?:n|al)?|nag-?bayad)\b/i
 const TRANSFER_WORDS = /\b(transferred|transfer(?:red)? to|moved|sent)\b/i
 
-const REF = /\b(?:ref(?:erence)?(?:\.|\s)?\s?(?:no\.?|number|#)?\s?:?\s?)([A-Z0-9]{6,})\b/i
+const REF = /\b(?:ref(?:erence)?(?:\.|\s)?\s?(?:no\.?|number|#)?\s?:?\s?)([A-Z0-9]{6,})\b/gi
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * The date printed in the message, as YYYY-MM-DD. GCash writes "on 10-29-26" or "on 11-02-2026"
+ * (month first); banks often write "03Nov2026". A date in the future is not trusted.
+ */
+export function messageDate(text: string, now: Date = new Date()): string | undefined {
+  let y: number | undefined, m: number | undefined, d: number | undefined
+  const numeric = /\bon\s+(\d{1,2})[-/](\d{1,2})[-/](\d{4}|\d{2})\b/i.exec(text)
+  const named = /\b(\d{1,2})\s?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?\s?(\d{4})\b/i.exec(text)
+  if (numeric) {
+    m = Number(numeric[1])
+    d = Number(numeric[2])
+    y = Number(numeric[3]) + (numeric[3].length === 2 ? 2000 : 0)
+  } else if (named) {
+    d = Number(named[1])
+    m = MONTHS.indexOf(named[2].toLowerCase()) + 1
+    y = Number(named[3])
+  }
+  if (!y || !m || !d || m > 12 || d > 31) return undefined
+  const date = new Date(y, m - 1, d)
+  if (date.getMonth() !== m - 1 || date.getTime() > now.getTime() + 24 * 60 * 60 * 1000) return undefined
+  return `${y}-${pad(m)}-${pad(d)}`
+}
+
+/** The last reference in the message: GCash ends with its own "GCash Ref. No." after any partner's. */
+const referenceOf = (text: string): string | undefined => {
+  let last: string | undefined
+  for (const match of text.matchAll(REF)) last = match[1]
+  return last
+}
 
 function senderOf(input: NotificationInput): NotificationSource | undefined {
   if (input.packageName) {
@@ -70,7 +105,7 @@ function senderOf(input: NotificationInput): NotificationSource | undefined {
 
 function counterpartyOf(text: string, type: TransactionType): string | undefined {
   // "from JUAN DELA CRUZ", "to MERCHANT NAME". Stop at a full stop, comma, "on", "via" or a reference.
-  const stop = String.raw`(?=\s*(?:[.,;]|\bon\b|\bvia\b|\bref\b|\bat\b|\bwith\b|$))`
+  const stop = String.raw`(?=\s*(?:[.,;]|\bon\b|\bvia\b|\bref\b|\bat\b|\bwith\b|\bhas\b|\bhave\b|\bwas\b|\bis\b|$))`
   const pick = (word: string) => new RegExp(String.raw`\b${word}\s+([A-Za-z0-9][A-Za-z0-9 &'.\-]{1,40}?)` + stop, 'i').exec(text)?.[1]?.trim()
   const raw = type === 'income' ? pick('from') : pick('to')
   if (!raw) return undefined
@@ -90,6 +125,8 @@ export function parseNotification(input: NotificationInput, context: ParseContex
 
   // One-time passwords and balance alerts carry amounts but are not transactions.
   if (/\b(otp|one[\s-]?time|verification code|your (?:available )?balance is|login|logged in)\b/i.test(text)) return null
+  // A payment that did not go through moved no money.
+  if (/\b(enough balance|insufficient|unsuccessful|failed|declined|could not be (?:processed|completed)|was not (?:processed|completed))\b/i.test(text)) return null
 
   let type: TransactionType | undefined
   let typeConfidence = 0.9
@@ -113,7 +150,8 @@ export function parseNotification(input: NotificationInput, context: ParseContex
 
   const sender = senderOf(input)
   const counterparty = counterpartyOf(text, type)
-  const reference = REF.exec(text)?.[1]
+  const reference = referenceOf(text)
+  const printedDate = messageDate(text, input.postedAt ?? context.now ?? new Date())
 
   // Reuse the chat parser for the date, wallet and category, on a cleaned line it already understands.
   const cleaned = `${type === 'income' ? 'Received' : 'Spent'} ${amount} ${counterparty ?? ''}`.trim()
@@ -123,13 +161,16 @@ export function parseNotification(input: NotificationInput, context: ParseContex
     ...base,
     amount,
     type,
-    description: counterparty ?? base.description ?? (type === 'income' ? 'Received' : 'Payment'),
-    date: base.date,
+    description:
+      type === 'income' && counterparty && /\brefund/i.test(text)
+        ? `Refund from ${counterparty}`
+        : counterparty ?? base.description ?? (type === 'income' ? 'Received' : 'Payment'),
+    date: printedDate ?? base.date,
     fromWalletName: sender?.walletName ?? base.fromWalletName,
     sourceWalletName: sender?.walletName,
     counterparty,
     reference,
-    confidence: { ...base.confidence, amount: 0.95, type: typeConfidence },
+    confidence: { ...base.confidence, amount: 0.95, type: typeConfidence, ...(printedDate ? { date: 0.95 } : {}) },
   }
 }
 
@@ -149,5 +190,41 @@ export function makeDuplicateGuard(windowMs = 2 * 60 * 1000) {
     if (byRef) seen.set(byRef, at)
     seen.set(byShape, at)
     return false
+  }
+}
+
+/**
+ * True when pasted text reads like a bank or e-wallet alert rather than something typed by hand:
+ * a peso amount plus a reference number or the usual "successfully / credited / debited" wording.
+ */
+export function looksLikeMoneyMessage(raw: string): boolean {
+  const text = raw.replace(/\s+/g, ' ').trim()
+  if (text.split(' ').length < 6 || !AMOUNT.test(text)) return false
+  return !!referenceOf(text) || /\b(successfully|credited|debited|you have received|has been (?:sent|received|processed))\b/i.test(text)
+}
+
+// References already logged on this device, so pasting the same message twice is caught.
+const LOGGED_KEY = 'fico-logged-references'
+const MAX_LOGGED = 500
+
+const readLogged = (): string[] => {
+  try {
+    const list = JSON.parse(window.localStorage.getItem(LOGGED_KEY) ?? '[]')
+    return Array.isArray(list) ? list.map(String) : []
+  } catch {
+    return []
+  }
+}
+
+export const wasReferenceLogged = (reference?: string): boolean => !!reference && readLogged().includes(reference)
+
+export function rememberLoggedReference(reference?: string) {
+  if (!reference) return
+  try {
+    const list = readLogged().filter((r) => r !== reference)
+    list.push(reference)
+    window.localStorage.setItem(LOGGED_KEY, JSON.stringify(list.slice(-MAX_LOGGED)))
+  } catch {
+    /* only a convenience: without storage the duplicate check is skipped */
   }
 }

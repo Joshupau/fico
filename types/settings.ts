@@ -30,4 +30,6 @@ export interface SettingsState {
   onboardingCompleted: boolean
   /** Money kept untouched when working out what is safe to spend, such as a bank's minimum balance. */
   safeToSpendFloor: number
+  /** Per wallet id: whether it counts toward safe to spend, and the minimum to leave in it. */
+  safeToSpendWallets: Record<string, { include?: boolean; min?: number }>
 }

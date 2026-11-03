@@ -10,6 +10,7 @@ import { useListCategories } from '@/queries/user/category/categories'
 import { X, Send, Camera, CheckCircle2, ChevronDown, ArrowDownLeft, ArrowUpRight, Shuffle } from 'lucide-react'
 import { CreateTransactionModal } from '@/components/page/transaction/create-transaction-modal'
 import { matchCategory, matchWallet, parseReceiptText, parseTransactionText, type ParseContext, type ParsedTransaction } from '@/utils/transaction-parser'
+import { looksLikeMoneyMessage, parseNotification, rememberLoggedReference, wasReferenceLogged } from '@/utils/notification-parser'
 import { detectIntent } from '@/utils/agent-intent'
 import { answerQuestion, HELP_TEXT } from '@/utils/agent-answers'
 import { frequentTransactionSuggestions } from '@/utils/frequent-transactions'
@@ -104,6 +105,8 @@ export function FloatingAgent() {
   const [selectedWalletId, setSelectedWalletId] = useState('')
   const [selectedToWalletId, setSelectedToWalletId] = useState('')
   const [showWalletPicker, setShowWalletPicker] = useState(false)
+  // Reference number of a pasted bank or GCash message, remembered once it is saved.
+  const pendingReference = useRef<string | undefined>(undefined)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -260,7 +263,7 @@ export function FloatingAgent() {
       setMessages([{
         id: 'welcome',
         role: 'agent',
-        content: 'Hi! Tell me about your transaction in your own words, like "80 lunch cash" or "sahod 25k bdo", or upload a receipt photo 📷',
+        content: 'Hi! Tell me about your transaction in your own words, like "80 lunch cash" or "sahod 25k bdo", paste a GCash or bank text message, or upload a receipt photo 📷',
       }])
     }
   }, [messages.length])
@@ -309,8 +312,8 @@ export function FloatingAgent() {
   // ---------------------------------------------------------------------------
   // Text send
   // ---------------------------------------------------------------------------
-  const handleSendText = async () => {
-    const text = inputText.trim()
+  const handleSendText = async (override?: string) => {
+    const text = (override ?? inputText).trim()
     if (!text || isProcessing || isOcring) return
 
     setInputText('')
@@ -320,6 +323,12 @@ export function FloatingAgent() {
     // Small delay for UX (feels more natural)
     await new Promise(r => setTimeout(r, 400))
     setIsProcessing(false)
+
+    // A pasted GCash or bank alert: read it as one, not as a typed entry.
+    if (looksLikeMoneyMessage(text)) {
+      handleMoneyMessage(text)
+      return
+    }
 
     switch (detectIntent(text)) {
       case 'greeting':
@@ -332,6 +341,7 @@ export function FloatingAgent() {
         pushAgent(HELP_TEXT)
         return
       case 'cancel':
+        pendingReference.current = undefined
         setPendingTransaction(null)
         setShowWalletPicker(false)
         pushAgent('Okay, cancelled. Nothing was saved.')
@@ -347,6 +357,7 @@ export function FloatingAgent() {
         return
     }
 
+    pendingReference.current = undefined
     const parsed = parseTransactionText(text, parseContext)
 
     if (!parsed.amount || parsed.confidence.amount < 0.5) {
@@ -356,6 +367,24 @@ export function FloatingAgent() {
     }
 
     presentParsed(parsed)
+  }
+
+  const handleMoneyMessage = (text: string) => {
+    const parsed = parseNotification({ text }, parseContext)
+    if (!parsed) {
+      pushAgent("That looks like a bank or GCash message, but I couldn't find a payment in it. Messages about OTPs, balances or linked accounts aren't transactions.")
+      return
+    }
+    if (wasReferenceLogged(parsed.reference)) {
+      pushAgent(`You already logged this one (Ref. ${parsed.reference}). Nothing new to save.`)
+      return
+    }
+    // Same amount, type and date in recent history: probably typed in by hand already.
+    const twin = recentTransactions.find(
+      (t: any) => Number(t.amount) === parsed.amount && t.type === parsed.type && String(t.date ?? '').slice(0, 10) === parsed.date
+    )
+    pendingReference.current = parsed.reference
+    presentParsed(parsed, twin ? `Heads up: you already have a ${formatAmount(parsed.amount ?? 0)} ${parsed.type} on that day ("${twin.description || 'no note'}"). If it's a different one:` : 'Read your message!')
   }
 
   /** Shows what was understood, then opens the form, or asks for the wallet when it isn't known. */
@@ -412,6 +441,31 @@ export function FloatingAgent() {
     pushAgent(`${summary}\n\n${note}${ask}`)
   }
 
+  // A link like /dashboard?log=<message text> (for example from an iPhone Shortcut that runs when a
+  // GCash SMS arrives) opens the chat with that message, once the wallets have loaded.
+  const linkedText = useRef<string | null>(null)
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href)
+      const text = url.searchParams.get('log')
+      if (!text) return
+      linkedText.current = text
+      url.searchParams.delete('log')
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+    } catch {
+      /* a malformed link just opens the app */
+    }
+  }, [])
+  useEffect(() => {
+    if (!linkedText.current || !walletsResponse || !recentTransactionsResponse) return
+    const text = linkedText.current
+    linkedText.current = null
+    setIsHidden(false)
+    setIsOpen(true)
+    void handleSendText(text)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletsResponse, recentTransactionsResponse])
+
   // ---------------------------------------------------------------------------
   // Image upload / OCR
   // ---------------------------------------------------------------------------
@@ -467,6 +521,8 @@ export function FloatingAgent() {
   }
 
   const handleModalSuccess = () => {
+    rememberLoggedReference(pendingReference.current)
+    pendingReference.current = undefined
     setModalOpen(false)
     setPendingTransaction(null)
     setSelectedWalletId('')
@@ -704,7 +760,7 @@ export function FloatingAgent() {
                   />
                   <button
                     type="button"
-                    onClick={handleSendText}
+                    onClick={() => handleSendText()}
                     disabled={!inputText.trim() || busy}
                     aria-label="Send"
                     className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-ios transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"

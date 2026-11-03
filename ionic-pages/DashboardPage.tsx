@@ -182,7 +182,7 @@ export default function DashboardPage() {
   const coinTotal = coinHoldings.reduce((sum, h) => sum + (coinLive[h.id]?.value ?? Number(h.currentValue) ?? 0), 0)
 
   const backendHasBills = process.env.NEXT_PUBLIC_BACKEND === 'supabase'
-  const { inputs: safeInputs, loading: safeLoading } = useSafeToSpendInputs()
+  const { inputs: safeInputs, loading: safeLoading, wallets: safeWallets } = useSafeToSpendInputs()
   const safeResult = useMemo(() => (safeInputs ? safeToSpend(safeInputs) : null), [safeInputs])
 
   const widgetNodes: Record<WidgetId, React.ReactNode> = {
@@ -190,7 +190,7 @@ export default function DashboardPage() {
     safeToSpend: !backendHasBills ? null : (
       <Card>
         <CardHeader title="Safe to spend" to="/bills" linkLabel="Bills" />
-        <SafeToSpendBody result={safeResult} loading={safeLoading} money={money} spentToday={safeInputs?.spentToday ?? 0} />
+        <SafeToSpendBody result={safeResult} loading={safeLoading} money={money} spentToday={safeInputs?.spentToday ?? 0} wallets={safeWallets} />
       </Card>
     ),
     yourMoney: (

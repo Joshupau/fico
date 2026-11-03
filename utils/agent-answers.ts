@@ -156,5 +156,5 @@ export const HELP_TEXT = [
   '• "sahod 25k bdo"',
   '• "transfer 2k gotyme to maya"',
   '• "withdraw 3000 from bdo"',
-  'You can also ask "balance ko?" or "how much did I spend this week?", or send a receipt photo 📷',
+  'You can also paste a GCash or bank text message, ask "balance ko?" or "how much did I spend this week?", or send a receipt photo 📷',
 ].join('\n')
