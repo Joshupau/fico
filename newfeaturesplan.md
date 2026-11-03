@@ -90,3 +90,75 @@ Why: people stop using budgeting apps when logging feels like homework and the a
   2. In `quick-add-sheet.tsx` `finish()` and the agent's save path: run `applyTransaction` on the current inputs and show `instantAnswer(...)` in the success toast, so it doesn't wait for a refetch.
   3. Home widget `safeToSpend` (ring) reusing the same function.
   4. Note: `useOpenBills` and `useAllWallets` assert the Supabase backend; the local backend needs equivalents, or the answer is skipped when the data isn't available.
+
+---
+
+# Interactivity plan
+
+Priority order. Each task can be built on its own.
+
+## 1. What-if forecast
+Files: `utils/forecast.ts`, `ionic-pages/ForecastPage.tsx`, `queries/user/planned/planned-items.ts`
+- A "daily spend" slider on the Future view (₱0 to 2x typical). It overrides the `includeTypical` toggle; the typical flow stays the default value.
+- Feed planned items (`types/planned-item.ts`, which already has `amountLow` and `amountHigh`) into `buildForecast` as dated events. It currently uses only bills, budgets and typical flow.
+- Show the low-to-high range as a band on the chart.
+- Planned items draggable by date and amount on the chart. Dragging changes the forecast only; "Save to plan" writes it back.
+- Done when: moving a slider or an item redraws the line in under 100 ms and Reset returns to the saved plan.
+
+## 2. Safe-to-spend ring on Home
+Files: `components/page/home/fico-balance-card.tsx`, `store/home-widgets-store.ts`, `utils/safe-to-spend.ts` (done)
+- New `safeToSpend` widget: today's allowance, a ring that fills as you spend, next payday and days left.
+- Configurable wallet floor (for example a bank's minimum balance).
+- Done when: it matches the MCP `safe_to_spend` result for the same data and can be hidden or reordered like other widgets.
+
+## 3. Tappable charts
+Files: `components/page/dashboard/spending-chart.tsx`, `components/page/statistics/category-distribution-card.tsx`
+- Tapping a bar, day or category slice opens a bottom sheet with that slice's transactions.
+- Long-press and drag on the main chart to set the period.
+- Done when: every point opens its transactions and the sheet total equals the point's value.
+
+## 4. Swipe inbox for uncategorized and imported transactions
+Files: new `components/page/transaction/triage-inbox.tsx`, `utils/import-csv.ts`, `utils/frequent-transactions.ts`
+- One card at a time: swipe right to accept the suggested category, left to skip, up to edit. A fourth action marks the item as already spent without changing wallet balances.
+- Done when: 50 imported items clear in under 2 minutes with no balance change on "already spent".
+
+## 5. Check-ins and actionable insights
+Files: `utils/push.ts`, `scripts/sw.source.js`, the insight cards
+- Optional evening prompt at a user-set time, for example "You're ₱120 under pace today. Move it to your goal?", with one-tap actions.
+- Insight cards get buttons ("Planned", "Reduce") that set a budget or dismiss the card.
+- Done when: notifications can be switched off in Settings and each action is a single tap.
+
+## 6. Cleanup
+- `fico-api`: remove leftovers `initialization/data/quests.json`, `Globalpass`, `Staffuser`, `packages.json` after confirming nothing references them.
+- Crypto prices: investments return `price: null` and show as stale.
+
+## Rules for every task
+- No what-if or preview action changes stored balances.
+- Respect `hideAmountsOnOpen` in every new view.
+- Add a test under `scripts/` for each new util, in the style of `scripts/test-engine.mts`.
+
+---
+
+# Retention plan, remaining items
+
+Auto-capture (A) and the instant answer (B) are above. The rest:
+
+## C. Reasons to open the app without logging
+- Payday card: "your sahod is in, here's your plan" with the safe-to-spend result.
+- Utang reminders: a one-tap "remind them" message for money lent (`components/page/debts`), shareable to Messenger or SMS.
+- Weekly recap: short enough to read in a minute and easy to share.
+
+## D. Shared use
+- Shared wallets for couples or family, and split bills for friends.
+- Group savings and paluwagan tracking.
+- Link with the Jubi couples app.
+
+## E. Philippines-specific planning
+- 13th month planner: expected amount, what it covers, and a reduction for unpaid leave.
+- Leave and salary view, and a freelancer tax and contribution tracker (8% option, registration reminders).
+
+## F. First 60 seconds
+- On signup, ask one goal ("move out", "pay off a card"), then show a forecast for it before any setup. Review how `components/page/onboarding/OnboardingPage.tsx` flows today.
+
+## Measure before building C to F
+- Track where new users drop off (day 1, 3, 7) and ask five of them why they stopped.
