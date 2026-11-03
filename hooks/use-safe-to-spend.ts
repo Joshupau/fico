@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useListWallets } from '@/queries/user/wallet/wallets'
 import { useOpenBills } from '@/queries/user/forecast/forecast'
+import { useListPlannedItems } from '@/queries/user/planned/planned-items'
 import { useSpentToday } from '@/queries/user/transaction/transaction'
 import { useSettingsStore } from '@/store/settings-store'
 import { safeToSpendInputs, type SafeToSpendInput } from '@/utils/safe-to-spend'
@@ -14,6 +15,9 @@ const asList = (data: any): any[] => (Array.isArray(data) ? data : Array.isArray
 export function useSafeToSpendInputs(): { inputs: SafeToSpendInput | null; loading: boolean; wallets: any[] } {
   const supported = process.env.NEXT_PUBLIC_BACKEND === 'supabase'
   const floor = useSettingsStore((s) => s.safeToSpendFloor)
+  const rules = useSettingsStore((s) => s.safeToSpendWallets)
+  // Planned items are optional: if they fail to load, the answer goes ahead without them.
+  const { data: planned, isLoading: plannedLoading } = useListPlannedItems()
   const { data: walletsResponse, isLoading: walletsLoading } = useListWallets({ limit: '100' })
   const { data: openBills, isLoading: billsLoading, isError: billsError } = useOpenBills()
   const { data: spentResponse, isLoading: spentLoading } = useSpentToday()
@@ -23,8 +27,8 @@ export function useSafeToSpendInputs(): { inputs: SafeToSpendInput | null; loadi
 
   const inputs = useMemo(() => {
     if (!supported || billsError || !walletsResponse || !openBills) return null
-    return safeToSpendInputs({ wallets, openBills, spentToday, floor })
-  }, [supported, billsError, walletsResponse, openBills, wallets, spentToday, floor])
+    return safeToSpendInputs({ wallets, openBills, planned: planned ?? [], rules, spentToday, floor })
+  }, [supported, billsError, walletsResponse, openBills, planned, rules, wallets, spentToday, floor])
 
-  return { inputs, loading: supported && (walletsLoading || billsLoading || spentLoading), wallets }
+  return { inputs, loading: supported && (walletsLoading || billsLoading || spentLoading || plannedLoading), wallets }
 }

@@ -86,8 +86,9 @@ export function safeToSpend(input: SafeToSpendInput): SafeToSpend {
 export function instantAnswer(after: SafeToSpend, money: (n: number) => string): string | null {
   if (after.short) return `Bills before your next income are ${money(Math.abs(after.usable))} more than your cash.`
   const left = Math.round(after.leftToday)
-  if (left >= 0) return `${money(left)} left for today.`
-  return `${money(-left)} over today's pace.`
+  const until = `${money(Math.round(after.usable))} until ${after.nextIncomeDate ? 'payday' : 'month end'}.`
+  if (left >= 0) return `${money(left)} left for today, ${until}`
+  return `${money(-left)} over today's pace. ${until.charAt(0).toUpperCase()}${until.slice(1)}`
 }
 
 /** A transaction's effect on the inputs, so the answer can be worked out before the data refetches. */
@@ -112,14 +113,25 @@ export function applyTransaction(
 /** Wallet types whose money you spend day to day. Savings and credit cards are left out, as in the MCP `safe_to_spend` tool. */
 export const isCashWallet = (type?: string) => type !== 'savings' && type !== 'credit_card'
 
+/** Per-wallet choices for the safe-to-spend total, keyed by wallet id. */
+export type SafeWalletRule = { include?: boolean; min?: number }
+
+/** Whether a wallet counts: your choice when you made one, otherwise cash, bank and e-wallets do. */
+export const walletCounts = (wallet: { type?: string }, rule?: SafeWalletRule) =>
+  wallet.type !== 'credit_card' && (rule?.include ?? isCashWallet(wallet.type))
+
 /**
  * Builds the inputs from what the app already loads: active wallets, open bills (expense and income,
- * recurring ones expanded) and today's spending. With no income on the Bills page it counts to the end
- * of the month, the same fallback the MCP tool uses.
+ * recurring ones expanded), planned expenses and today's spending. Each counted wallet gives what is
+ * above its minimum (a bank's maintaining balance, say). With no income on the Bills page it counts
+ * to the end of the month, the same fallback the MCP tool uses.
  */
 export function safeToSpendInputs(data: {
-  wallets: { type?: string; balance?: number | string; status?: string }[]
+  wallets: { id?: string; _id?: string; type?: string; balance?: number | string; status?: string }[]
   openBills: ForecastBill[]
+  /** Planned one-off items. Expenses count at their high estimate; planned income is not counted. */
+  planned?: { type: 'income' | 'expense'; date: string; amountHigh: number; amountLow?: number }[]
+  rules?: Record<string, SafeWalletRule>
   spentToday?: number
   floor?: number
   today?: Date
@@ -127,8 +139,12 @@ export function safeToSpendInputs(data: {
   const today = startOfDay(data.today ?? new Date())
   const horizon = addDays(today, 62)
   const cashBalance = data.wallets
-    .filter((w) => w.status !== 'archived' && isCashWallet(w.type))
-    .reduce((sum, w) => sum + (Number(w.balance) || 0), 0)
+    .filter((w) => w.status !== 'archived')
+    .reduce((sum, w) => {
+      const rule = data.rules?.[String(w.id ?? w._id ?? '')]
+      if (!walletCounts(w, rule)) return sum
+      return sum + Math.max(0, (Number(w.balance) || 0) - Math.max(0, Number(rule?.min) || 0))
+    }, 0)
 
   const bills: SafeToSpendInput['bills'] = []
   const incomes: SafeToSpendInput['incomes'] = []
@@ -146,6 +162,13 @@ export function safeToSpendInputs(data: {
       if (next < today) continue
       add(next, Number(bill.amount) || 0)
     }
+  }
+  for (const item of data.planned ?? []) {
+    if (item.type !== 'expense') continue
+    const date = startOfDay(parseISO(String(item.date)))
+    if (date < today) continue
+    const amount = Number(item.amountHigh) || Number(item.amountLow) || 0
+    if (amount > 0) bills.push({ dueDate: ymd(date), amount })
   }
 
   return {

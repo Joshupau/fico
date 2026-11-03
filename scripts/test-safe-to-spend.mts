@@ -58,7 +58,7 @@ check('short flagged', short.short === true && short.perDay === 0, short)
 check('short message', (instantAnswer(short, money) ?? '').startsWith('Bills before your next income'), instantAnswer(short, money))
 
 // instantAnswer wording.
-check('left wording', instantAnswer(r, money) === '₱1,117 left for today.', instantAnswer(r, money))
+check('left wording', instantAnswer(r, money) === '₱1,117 left for today, ₱13,400 until payday.', instantAnswer(r, money))
 const over = safeToSpend({ ...base, cashBalance: 14000, spentToday: 2600 })
 check('over wording', /over today's pace/.test(instantAnswer(over, money) ?? ''), instantAnswer(over, money))
 
@@ -105,6 +105,34 @@ const fromBuilt = safeToSpend(built)
 check('payday from income bills', fromBuilt.nextIncomeDate === '2026-11-15' && fromBuilt.days === 13, fromBuilt)
 check('bills before payday', fromBuilt.billsBefore === 7000, fromBuilt)
 check('usable after floor and bills', fromBuilt.usable === 11500 - 500 - 7000, fromBuilt)
+
+// Your own wallet choices: a minimum kept in a bank, a bank used for saving, and planned spending.
+const chosen = safeToSpendInputs({
+  today,
+  wallets: [
+    { id: 'bdo', type: 'bank', balance: 4103.77 },
+    { id: 'gcash', type: 'ewallet', balance: 1119.82 },
+    { id: 'cash', type: 'cash', balance: 1510 },
+    { id: 'gotyme', type: 'bank', balance: 500 },
+    { id: 'ef', type: 'savings', balance: 10150.63 },
+  ],
+  rules: { bdo: { min: 2000 }, gotyme: { include: false } },
+  openBills: [],
+  planned: [
+    { type: 'expense', date: '2026-11-10', amountLow: 900, amountHigh: 1500 },
+    { type: 'income', date: '2026-11-09', amountLow: 5000, amountHigh: 10000 },
+    { type: 'expense', date: '2026-10-01', amountHigh: 999 },
+  ],
+})
+check('bank minimum kept back', Math.round(chosen.cashBalance * 100) === Math.round((2103.77 + 1119.82 + 1510) * 100), chosen.cashBalance)
+check('wallet switched off is left out, savings stay out', chosen.cashBalance < 5000, chosen.cashBalance)
+check('planned expense counts at its high estimate', chosen.bills.some((b) => b.dueDate === '2026-11-10' && b.amount === 1500), chosen.bills)
+check('planned income is not counted', chosen.incomes.length === 0, chosen.incomes)
+check('past planned expense ignored', !chosen.bills.some((b) => b.dueDate === '2026-10-01'), chosen.bills)
+const savingsOn = safeToSpendInputs({ today, wallets: [{ id: 'ef', type: 'savings', balance: 100 }], rules: { ef: { include: true } }, openBills: [] })
+check('a savings wallet can be switched on', savingsOn.cashBalance === 100, savingsOn)
+const belowMin = safeToSpendInputs({ today, wallets: [{ id: 'bdo', type: 'bank', balance: 1500 }], rules: { bdo: { min: 2000 } }, openBills: [] })
+check('below its minimum a wallet gives nothing, not less than nothing', belowMin.cashBalance === 0, belowMin)
 
 console.log(`${passes} passed, ${failures} failed`)
 if (failures) process.exit(1)
