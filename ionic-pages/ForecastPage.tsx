@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronLeft, History, TrendingUp, TriangleAlert } from 'lucide-react'
+import { ChevronLeft, History, RotateCcw, TrendingUp, TriangleAlert } from 'lucide-react'
 import { IonContent, IonPage } from '@ionic/react'
 import { useHistory } from 'react-router-dom'
 import { format, parseISO, subDays } from 'date-fns'
@@ -13,7 +13,8 @@ import { fieldClass } from '@/components/ui/form-sheet'
 import { useActiveBudgets, useAllWallets, useOpenBills, useTransactionsAfter } from '@/queries/user/forecast/forecast'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
-import { balancesAt, buildForecast, typicalFlow, type WalletSnapshot } from '@/utils/forecast'
+import { balancesAt, buildForecast, typicalFlow, type ForecastPlanned, type WalletSnapshot } from '@/utils/forecast'
+import { useListPlannedItems } from '@/queries/user/planned/planned-items'
 
 type Tab = 'forecast' | 'lookback'
 
@@ -95,6 +96,10 @@ function FutureView() {
   const [days, setDays] = useState(90)
   const [includeTypical, setIncludeTypical] = useState(true)
   const [includeBudgets, setIncludeBudgets] = useState(true)
+  // What-if values. They only change the forecast on screen; nothing is saved.
+  const [dailySpend, setDailySpend] = useState<number | null>(null)
+  const [itemWhatIf, setItemWhatIf] = useState<Record<string, { skip?: boolean; amount?: number }>>({})
+  const { data: plannedItems } = useListPlannedItems()
 
   const windowStart = useMemo(() => subDays(new Date(), TYPICAL_WINDOW_DAYS).toISOString(), [])
   const walletsQ = useAllWallets()
@@ -107,26 +112,48 @@ function FutureView() {
   const { data: recent } = recentQ
   const error = walletsQ.error || billsQ.error || budgetsQ.error || recentQ.error
 
-  const forecast = useMemo(() => {
-    if (!wallets || !bills || !recent || !budgets) return null
-    const active = wallets.filter((w) => w.status !== 'archived')
-    const cash = active.filter((w) => w.type !== 'credit_card')
-    const walletTypes = Object.fromEntries(wallets.map((w) => [w.id, w.type]))
+  const cash = useMemo(() => (wallets ?? []).filter((w) => w.status !== 'archived' && w.type !== 'credit_card'), [wallets])
+
+  // Your usual everyday flow, the starting point for the daily spend slider.
+  const usual = useMemo(() => {
+    if (!recent || !budgets) return null
     // Budgets already plan these expenses, so everyday spending leaves them out.
     const budgeted: Set<string> | 'all' | undefined = !includeBudgets
       ? undefined
       : budgets.some((b) => b.categoryIds.length === 0)
         ? 'all'
         : new Set(budgets.flatMap((b) => b.categoryIds))
+    return typicalFlow(recent, new Set(cash.map((w) => w.id)), TYPICAL_WINDOW_DAYS, budgeted)
+  }, [recent, budgets, cash, includeBudgets])
+
+  const planned = useMemo<ForecastPlanned[]>(
+    () =>
+      (plannedItems ?? [])
+        .filter((item) => !itemWhatIf[item.id]?.skip)
+        .map((item) => ({ ...item, amount: itemWhatIf[item.id]?.amount })),
+    [plannedItems, itemWhatIf]
+  )
+
+  const forecast = useMemo(() => {
+    if (!wallets || !bills || !budgets || !usual) return null
+    const walletTypes = Object.fromEntries(wallets.map((w) => [w.id, w.type]))
     return buildForecast({
       startingCash: cash.reduce((sum, w) => sum + Number(w.balance), 0),
       bills,
       walletTypes,
       horizonDays: days,
-      typical: includeTypical ? typicalFlow(recent, new Set(cash.map((w) => w.id)), TYPICAL_WINDOW_DAYS, budgeted) : undefined,
+      typical: includeTypical ? { dailyIncome: usual.dailyIncome, dailySpend: dailySpend ?? usual.dailySpend } : undefined,
       budgets: includeBudgets ? budgets : undefined,
+      planned,
     })
-  }, [wallets, bills, budgets, recent, days, includeTypical, includeBudgets])
+  }, [wallets, cash, bills, budgets, usual, days, includeTypical, includeBudgets, dailySpend, planned])
+
+  const changed = dailySpend !== null || Object.keys(itemWhatIf).length > 0
+  const resetWhatIf = () => {
+    setDailySpend(null)
+    setItemWhatIf({})
+  }
+  const sliderMax = Math.max(500, Math.ceil(((usual?.dailySpend ?? 0) * 2) / 50) * 50)
 
   if (error) return <LoadError error={error} />
   if (!forecast) return <Skeleton className="h-96 w-full rounded-2xl" />
@@ -162,6 +189,36 @@ function FutureView() {
         </label>
         </div>
       </div>
+
+      {includeTypical && usual && (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="what-if-spend" className="text-sm font-semibold">
+              What if I spend <span className="text-primary">{money(Math.round(dailySpend ?? usual.dailySpend))}</span> a day?
+            </label>
+            {changed && (
+              <button type="button" onClick={resetWhatIf} className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            )}
+          </div>
+          <input
+            id="what-if-spend"
+            type="range"
+            min={0}
+            max={sliderMax}
+            step={10}
+            value={Math.round(dailySpend ?? usual.dailySpend)}
+            onChange={(e) => setDailySpend(Number(e.target.value))}
+            className="mt-3 w-full accent-primary"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Your usual is {money(Math.round(usual.dailySpend))} a day (last {TYPICAL_WINDOW_DAYS} days, outside bills{includeBudgets ? ' and budgets' : ''}). Trying
+            values here doesn&apos;t save anything.
+          </p>
+        </div>
+      )}
 
       {forecast.shortfallDate && (
         <div className="flex items-start gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
@@ -200,16 +257,77 @@ function FutureView() {
               <YAxis tick={{ fontSize: 10, fill: 'currentColor', opacity: 0.5 }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => (hideAmountsOnOpen ? '' : new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(v)))} />
               <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 4" />
               <Tooltip formatter={(v) => money(Number(v))} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-              <Area type="monotone" dataKey="balance" name="Cash" stroke="#0066CC" strokeWidth={2} fill="url(#gradForecast)" dot={false} />
+              {planned.length > 0 && (
+                <Area
+                  type="monotone"
+                  dataKey={(p: { low: number; high: number }) => [p.low, p.high]}
+                  name="Planned range"
+                  stroke="none"
+                  fill="#0066CC"
+                  fillOpacity={0.12}
+                  isAnimationActive={false}
+                  tooltipType="none"
+                />
+              )}
+              <Area type="monotone" dataKey="balance" name="Cash" stroke="#0066CC" strokeWidth={2} fill="url(#gradForecast)" dot={false} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Counts your unpaid and recurring bills and income across non-credit-card wallets
           {includeBudgets ? ', plus the spending your budgets allow (what is left this period, then the full amount each period after)' : ''}
-          {includeTypical ? `, plus your average everyday spending and income over the last ${TYPICAL_WINDOW_DAYS} days` : ''}. Bills charged to a credit card are left out.
+          {includeTypical ? `, plus your average everyday spending and income over the last ${TYPICAL_WINDOW_DAYS} days` : ''}
+          {planned.length > 0 ? ', plus your planned items (the shaded band runs from their worst case to their best case)' : ''}. Bills charged to a credit card are left out.
         </p>
       </div>
+
+      {(plannedItems ?? []).some((item) => item.date >= todayInput()) && (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-sm font-semibold">Planned items</p>
+          <p className="mb-3 text-xs text-muted-foreground">Turn one off or slide its amount to see what changes. Your plan stays as it is.</p>
+          <ul className="space-y-3">
+            {(plannedItems ?? [])
+              .filter((item) => item.date >= todayInput())
+              .map((item) => {
+                const whatIf = itemWhatIf[item.id] ?? {}
+                const on = !whatIf.skip
+                const low = item.amountLow
+                const high = Math.max(item.amountLow, item.amountHigh)
+                const value = whatIf.amount ?? (low + high) / 2
+                const set = (next: { skip?: boolean; amount?: number }) => setItemWhatIf((prev) => ({ ...prev, [item.id]: { ...prev[item.id], ...next } }))
+                return (
+                  <li key={item.id} className="rounded-xl bg-secondary/40 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`truncate text-sm font-medium ${on ? '' : 'text-muted-foreground line-through'}`}>{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(parseISO(item.date), 'EEE, MMM d')} · {item.type === 'income' ? 'income' : 'expense'}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 text-sm font-bold ${item.type === 'income' ? 'text-success' : 'text-foreground'}`}>
+                        {item.type === 'income' ? '+' : '-'}
+                        {money(Math.round(value))}
+                      </span>
+                      <Switch checked={on} onCheckedChange={(checked) => set({ skip: !checked })} aria-label={`Include ${item.name}`} />
+                    </div>
+                    {on && high > low && (
+                      <input
+                        type="range"
+                        min={low}
+                        max={high}
+                        step={Math.max(1, Math.round((high - low) / 50))}
+                        value={value}
+                        onChange={(e) => set({ amount: Number(e.target.value) })}
+                        aria-label={`${item.name} amount`}
+                        className="mt-2 w-full accent-primary"
+                      />
+                    )}
+                  </li>
+                )
+              })}
+          </ul>
+        </div>
+      )}
 
       {forecast.budgetSpend.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-4">
@@ -235,7 +353,10 @@ function FutureView() {
               <li key={`${e.name}-${e.date.toISOString()}-${i}`} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{e.name}</p>
-                  <p className="text-xs text-muted-foreground">{format(e.date, 'EEE, MMM d')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(e.date, 'EEE, MMM d')}
+                    {e.range ? ` · planned, ${money(Math.abs(e.range.low))} to ${money(Math.abs(e.range.high))}` : ''}
+                  </p>
                 </div>
                 <span className={`shrink-0 font-bold ${e.amount >= 0 ? 'text-success' : 'text-foreground'}`}>
                   {e.amount >= 0 ? '+' : '-'}

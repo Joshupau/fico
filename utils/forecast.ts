@@ -112,12 +112,29 @@ export type ForecastEvent = {
   /** Signed effect on cash: negative for bills, positive for income. */
   amount: number
   kind: 'bill' | 'income'
+  /** Set for a planned item: its low and high estimate, signed like `amount`. */
+  range?: { low: number; high: number }
 }
 
 export type ForecastPoint = {
   date: string
   label: string
   balance: number
+  /** With planned items: the balance if they land at their worst (least income, most spending) and best. */
+  low: number
+  high: number
+}
+
+/** A one-off item from the Planned page, fed into the forecast as a dated event. */
+export type ForecastPlanned = {
+  id: string
+  name: string
+  type: 'income' | 'expense'
+  date: string
+  amountLow: number
+  amountHigh: number
+  /** What-if value used for the main line; defaults to the middle of the range. */
+  amount?: number
 }
 
 export type TypicalFlow = { dailyIncome: number; dailySpend: number }
@@ -167,6 +184,7 @@ export function buildForecast(input: {
   horizonDays: number
   typical?: TypicalFlow
   budgets?: ForecastBudget[]
+  planned?: ForecastPlanned[]
   today?: Date
 }): Forecast {
   const today = startOfDay(input.today ?? new Date())
@@ -200,6 +218,23 @@ export function buildForecast(input: {
     }
   }
 
+  // Planned items: the main line uses the chosen amount, the band runs from worst to best case.
+  const lowByDay = new Map<string, number>()
+  const highByDay = new Map<string, number>()
+  for (const item of input.planned ?? []) {
+    const date = startOfDay(parseISO(item.date))
+    if (date < today || date > end) continue
+    const sign = item.type === 'income' ? 1 : -1
+    const lo = Math.max(0, Number(item.amountLow) || 0)
+    const hi = Math.max(lo, Number(item.amountHigh) || 0)
+    const chosen = Math.min(hi, Math.max(lo, item.amount ?? (lo + hi) / 2))
+    const key = format(date, 'yyyy-MM-dd')
+    // Worst case: least income, most spending. Best case: the opposite.
+    lowByDay.set(key, (lowByDay.get(key) ?? 0) + (sign > 0 ? lo : -hi) - sign * chosen)
+    highByDay.set(key, (highByDay.get(key) ?? 0) + (sign > 0 ? hi : -lo) - sign * chosen)
+    events.push({ date, name: item.name, amount: sign * chosen, kind: sign > 0 ? 'income' : 'bill', range: { low: sign * lo, high: sign * hi } })
+  }
+
   events.sort((a, b) => a.date.getTime() - b.date.getTime())
 
   const dailyNet = input.typical ? input.typical.dailyIncome - input.typical.dailySpend : 0
@@ -229,6 +264,8 @@ export function buildForecast(input: {
 
   const points: ForecastPoint[] = []
   let balance = input.startingCash
+  let lowOffset = 0
+  let highOffset = 0
   let shortfallDate: string | null = null
   for (let i = 0; i <= input.horizonDays; i++) {
     const day = addDays(today, i)
@@ -236,7 +273,9 @@ export function buildForecast(input: {
     if (i > 0) balance += dailyNet
     if (i > 0) balance -= budgetOn(day)
     balance += byDay.get(key) ?? 0
-    const point = { date: key, label: format(day, 'MMM d'), balance: round2(balance) }
+    lowOffset += lowByDay.get(key) ?? 0
+    highOffset += highByDay.get(key) ?? 0
+    const point = { date: key, label: format(day, 'MMM d'), balance: round2(balance), low: round2(balance + lowOffset), high: round2(balance + highOffset) }
     points.push(point)
     if (shortfallDate === null && point.balance < 0) shortfallDate = key
   }
