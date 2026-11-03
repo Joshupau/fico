@@ -30,6 +30,7 @@ export const SYNCED_TABLES = [
   'investment_value_snapshots',
   'planned_items',
   'goals',
+  'wishlist_items',
 ]
 
 const PAGE = 1000
