@@ -31,11 +31,13 @@ export function CheckInSheet({ open, onClose }: { open: boolean; onClose: () => 
   // Where an unspent allowance could go: from the spending wallet with the most in it to a savings wallet.
   const move = useMemo(() => {
     const active = wallets.filter((w) => w.status !== 'archived')
+    const spare = (w: any) => (Number(w.balance) || 0) - (Number(rules?.[idOf(w)]?.min) || 0)
     const from = active
       .filter((w) => walletCounts(w, rules?.[idOf(w)]))
-      .sort((a, b) => (Number(b.balance) || 0) - (Number(a.balance) || 0))[0]
+      // What is above each wallet's minimum, so moving money never dips below a maintaining balance.
+      .sort((a, b) => spare(b) - spare(a))[0]
     const to = active.find((w) => w.type === 'savings' && !walletCounts(w, rules?.[idOf(w)]))
-    return from && to ? { from, to } : null
+    return from && to ? { from, to, spare: spare(from) } : null
   }, [wallets, rules])
 
   return (
@@ -79,7 +81,7 @@ export function CheckInSheet({ open, onClose }: { open: boolean; onClose: () => 
                 <Plus className="h-5 w-5 text-primary" />
                 Log something I missed
               </button>
-              {result && !result.short && left > 0 && move && (
+              {result && !result.short && left > 0 && move && move.spare >= left && (
                 <button
                   type="button"
                   onClick={() => setQuickAdd({ kind: 'save', from: idOf(move.from), to: idOf(move.to), amount: left })}
