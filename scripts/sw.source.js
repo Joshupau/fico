@@ -10,9 +10,14 @@ const ASSET_CACHE = `fico-assets-${VERSION}`
 const CURRENT = [SHELL_CACHE, STATIC_CACHE, ASSET_CACHE]
 
 // Keep the app shell ("/") from the start: every deep link falls back to it when offline.
+// A new version does not take over by itself: it waits until the user taps "Update" in the app
+// (utils/register-sw.ts), which sends SKIP_WAITING. The very first install has nothing to wait for.
 self.addEventListener('install', (event) => {
-  self.skipWaiting()
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.add('/')).catch(() => {}))
+})
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting()
 })
 self.addEventListener('activate', (event) =>
   event.waitUntil(

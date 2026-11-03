@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { installViewportFix } from '@/utils/viewport-fix';
 import { registerServiceWorker } from '@/utils/register-sw';
+import { UpdateBar } from '@/components/update-bar';
 import { IonApp, IonContent, IonPage, IonRouterOutlet, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Route, Redirect, useLocation } from 'react-router-dom';
@@ -135,6 +136,7 @@ function AppShellInner() {
           </Route>
         </IonRouterOutlet>
       </div>
+      <UpdateBar />
       {!hideNav && <FloatingAgent />}
       {isAuthenticated && <AppBadge />}
     </div>
