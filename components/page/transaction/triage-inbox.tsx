@@ -64,7 +64,8 @@ export function TriageInbox({ open, onClose }: { open: boolean; onClose: () => v
   const current = queue?.[index]
   const suggestion = useMemo(() => (current ? suggestCategory(current, history, categories) : null), [current, history, categories])
   const choices = useMemo(
-    () => categories.filter((c) => !c.type || !current || c.type === current.type).slice(0, 8),
+    // Every category of the matching type: a cap here hid the last ones alphabetically (e.g. "Repaid").
+    () => categories.filter((c) => !c.type || !current || c.type === current.type),
     [categories, current]
   )
 
