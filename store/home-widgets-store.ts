@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type WidgetId = 'yourMoney' | 'whereItWent' | 'comingUp' | 'owedToYou' | 'crypto' | 'latestActivity' | 'quickActions'
+export type WidgetId = 'safeToSpend' | 'yourMoney' | 'whereItWent' | 'comingUp' | 'owedToYou' | 'crypto' | 'latestActivity' | 'quickActions'
 
 export const WIDGETS: { id: WidgetId; label: string; hint: string }[] = [
+  { id: 'safeToSpend', label: 'Safe to spend', hint: 'What you can spend today until payday' },
   { id: 'yourMoney', label: 'Your money', hint: 'Wallet balances' },
   { id: 'whereItWent', label: 'Where it went', hint: 'Spending by category' },
   { id: 'comingUp', label: 'Coming up', hint: 'Bills due soon' },

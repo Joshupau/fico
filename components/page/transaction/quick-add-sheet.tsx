@@ -5,6 +5,8 @@ import { CalendarDays, Delete, Plus, TriangleAlert, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { useCreateTransaction, useUpdateTransaction } from '@/queries/user/transaction/transaction'
+import { useSafeToSpendInputs } from '@/hooks/use-safe-to-spend'
+import { applyTransaction, instantAnswer, isCashWallet, safeToSpend } from '@/utils/safe-to-spend'
 import { useListWallets } from '@/queries/user/wallet/wallets'
 import { useListCategories } from '@/queries/user/category/categories'
 import { useSettingsStore } from '@/store/settings-store'
@@ -80,6 +82,7 @@ export function QuickAddSheet({
   const { mutate: createTransaction, isPending: isCreating } = useCreateTransaction()
   const { mutate: updateTransaction, isPending: isUpdating } = useUpdateTransaction()
   const isPending = isCreating || isUpdating
+  const { inputs: safeInputs } = useSafeToSpendInputs()
 
   const wallets = useMemo(
     () => asList(walletsResponse?.data).filter((w) => w.status !== 'archived'),
@@ -234,8 +237,23 @@ export function QuickAddSheet({
       ...(fee > 0 ? { serviceFee: fee } : {}),
       ...(keepBalance ? { affectsBalance: false } : {}),
     }
+    // Worked out now, before the save refetches anything, so the answer counts this transaction once.
+    const answer = (() => {
+      const isToday = !date || date === new Date().toLocaleDateString('en-CA')
+      // "Hide amounts on open" means no money in a toast either.
+      if (!safeInputs || !isToday || hideAmountsOnOpen) return null
+      const typeOf = (id: string) => wallets.find((w, i) => walletIdOf(w, i) === id)?.type
+      const after = applyTransaction(safeInputs, {
+        type,
+        amount: type === 'income' ? amount : amount + fee,
+        fromCash: isCashWallet(typeOf(walletId)),
+        toCash: type === 'transfer' ? isCashWallet(typeOf(toWalletId)) : undefined,
+        affectsBalance: !keepBalance,
+      })
+      return instantAnswer(safeToSpend(after), (n) => formatMoney(n, currency))
+    })()
     createTransaction(payload, {
-      onSuccess: () => finish('Saved!'),
+      onSuccess: () => finish(answer ? `Saved! ${answer}` : 'Saved!'),
       onError: (error) => console.error('Error creating transaction:', error),
     })
   }

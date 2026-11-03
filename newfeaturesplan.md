@@ -66,3 +66,100 @@ This plan describes the UI/UX requirements for the new Obligations and Investmen
 - `GET /obligation/list`: `?direction=debt&status=active`
 - `POST /investment/update-value`: `{ id, value, notes }`
 - `POST /investment/sell`: `{ id, saleAmount, walletId }`
+
+---
+
+# Retention plan: auto-capture and an instant answer
+
+Why: people stop using budgeting apps when logging feels like homework and the app gives little back. Two changes target that first.
+
+## A. Auto-capture from notifications (Android first)
+- **Done on this branch:** `utils/notification-parser.ts` turns the text of a bank or e-wallet alert into a transaction to confirm (amount, direction, counterparty, wallet, reference), ignores OTPs and balance alerts, and `makeDuplicateGuard` stops one alert being logged twice. Tests: `scripts/test-notification-parser.mts`.
+- **To do:**
+  1. Replace the sample texts in the test with real GCash, Maya, GoTyme, BDO and BPI notifications (the samples are written from the general shape, not copied).
+  2. Capacitor plugin on Android using `NotificationListenerService`; the user grants "Notification access" in Settings, and the app only reads the apps in `NOTIFICATION_SOURCES`.
+  3. A "To confirm" tray: each captured item shows as a card with the parsed fields and Confirm / Edit / Dismiss. Nothing is saved without a tap at first; add an opt-in "auto-save high-confidence items" later.
+  4. Map `sourceWalletName` to the user's wallet through `matchWallet`; ask once if there's no match.
+  5. Privacy: process on device, store only the parsed fields and the reference, never the raw text.
+- iOS cannot read other apps' notifications. Offer paste or Share-sheet capture there instead.
+
+## B. Instant answer after each log
+- **Done on this branch:** `utils/safe-to-spend.ts` (`safeToSpend`, `applyTransaction`, `instantAnswer`, `safeToSpendInputs`). Tests: `scripts/test-safe-to-spend.mts`.
+- **Done (phase 1):** `hooks/use-safe-to-spend.ts`, the instant answer in the quick add "Saved!" toast, the `safeToSpend` Home widget (`components/page/home/safe-to-spend-card.tsx`) and the `safeToSpendFloor` setting. Cash counts bank, cash and e-wallets (not savings or cards) and payday comes from income bills, the same as the MCP tool. The toast stays plain when "Hide amounts on open" is on.
+- **Original to-do list:**
+  1. A `useSafeToSpendInputs()` hook: cash wallets (`useListWallets`), unpaid bills (`useOpenBills`), future income (`useListPlannedItems` where type is income, plus income bills), spent today (`useSpentToday`), and a floor setting in `types/settings.ts`.
+  2. In `quick-add-sheet.tsx` `finish()` and the agent's save path: run `applyTransaction` on the current inputs and show `instantAnswer(...)` in the success toast, so it doesn't wait for a refetch.
+  3. Home widget `safeToSpend` (ring) reusing the same function.
+  4. Note: `useOpenBills` and `useAllWallets` assert the Supabase backend; the local backend needs equivalents, or the answer is skipped when the data isn't available.
+
+---
+
+# Interactivity plan
+
+Priority order. Each task can be built on its own.
+
+## 1. What-if forecast
+Files: `utils/forecast.ts`, `ionic-pages/ForecastPage.tsx`, `queries/user/planned/planned-items.ts`
+- A "daily spend" slider on the Future view (₱0 to 2x typical). It overrides the `includeTypical` toggle; the typical flow stays the default value.
+- Feed planned items (`types/planned-item.ts`, which already has `amountLow` and `amountHigh`) into `buildForecast` as dated events. It currently uses only bills, budgets and typical flow.
+- Show the low-to-high range as a band on the chart.
+- Planned items draggable by date and amount on the chart. Dragging changes the forecast only; "Save to plan" writes it back.
+- Done when: moving a slider or an item redraws the line in under 100 ms and Reset returns to the saved plan.
+
+## 2. Safe-to-spend ring on Home
+Files: `components/page/home/fico-balance-card.tsx`, `store/home-widgets-store.ts`, `utils/safe-to-spend.ts` (done)
+- New `safeToSpend` widget: today's allowance, a ring that fills as you spend, next payday and days left.
+- Configurable wallet floor (for example a bank's minimum balance).
+- Done when: it matches the MCP `safe_to_spend` result for the same data and can be hidden or reordered like other widgets.
+
+## 3. Tappable charts
+Files: `components/page/dashboard/spending-chart.tsx`, `components/page/statistics/category-distribution-card.tsx`
+- Tapping a bar, day or category slice opens a bottom sheet with that slice's transactions.
+- Long-press and drag on the main chart to set the period.
+- Done when: every point opens its transactions and the sheet total equals the point's value.
+
+## 4. Swipe inbox for uncategorized and imported transactions
+Files: new `components/page/transaction/triage-inbox.tsx`, `utils/import-csv.ts`, `utils/frequent-transactions.ts`
+- One card at a time: swipe right to accept the suggested category, left to skip, up to edit. A fourth action marks the item as already spent without changing wallet balances.
+- Done when: 50 imported items clear in under 2 minutes with no balance change on "already spent".
+
+## 5. Check-ins and actionable insights
+Files: `utils/push.ts`, `scripts/sw.source.js`, the insight cards
+- Optional evening prompt at a user-set time, for example "You're ₱120 under pace today. Move it to your goal?", with one-tap actions.
+- Insight cards get buttons ("Planned", "Reduce") that set a budget or dismiss the card.
+- Done when: notifications can be switched off in Settings and each action is a single tap.
+
+## 6. Cleanup
+- `fico-api`: remove leftovers `initialization/data/quests.json`, `Globalpass`, `Staffuser`, `packages.json` after confirming nothing references them.
+- Crypto prices: investments return `price: null` and show as stale.
+
+## Rules for every task
+- No what-if or preview action changes stored balances.
+- Respect `hideAmountsOnOpen` in every new view.
+- Add a test under `scripts/` for each new util, in the style of `scripts/test-engine.mts`.
+
+---
+
+# Retention plan, remaining items
+
+Auto-capture (A) and the instant answer (B) are above. The rest:
+
+## C. Reasons to open the app without logging
+- Payday card: "your sahod is in, here's your plan" with the safe-to-spend result.
+- Utang reminders: a one-tap "remind them" message for money lent (`components/page/debts`), shareable to Messenger or SMS.
+- Weekly recap: short enough to read in a minute and easy to share.
+
+## D. Shared use
+- Shared wallets for couples or family, and split bills for friends.
+- Group savings and paluwagan tracking.
+- Link with the Jubi couples app.
+
+## E. Philippines-specific planning
+- 13th month planner: expected amount, what it covers, and a reduction for unpaid leave.
+- Leave and salary view, and a freelancer tax and contribution tracker (8% option, registration reminders).
+
+## F. First 60 seconds
+- On signup, ask one goal ("move out", "pay off a card"), then show a forecast for it before any setup. Review how `components/page/onboarding/OnboardingPage.tsx` flows today.
+
+## Measure before building C to F
+- Track where new users drop off (day 1, 3, 7) and ask five of them why they stopped.
