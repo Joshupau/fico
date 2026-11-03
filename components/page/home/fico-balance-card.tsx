@@ -21,6 +21,8 @@ interface FicoBalanceCardProps {
   statsLoading?: boolean
   balanceLoading?: boolean
   noteLoading?: boolean
+  /** One-tap follow-ups shown under the note. */
+  noteActions?: { label: string; onClick: () => void }[]
   period: Period
   onPeriodChange: (period: Period) => void
   showAmounts: boolean
@@ -58,6 +60,7 @@ export function FicoBalanceCard({
   statsLoading,
   balanceLoading,
   noteLoading,
+  noteActions,
   period,
   onPeriodChange,
   showAmounts,
@@ -79,6 +82,20 @@ export function FicoBalanceCard({
             </div>
           ) : (
             <p className="mt-1.5 text-[15px] leading-relaxed text-foreground">{note}</p>
+          )}
+          {!noteLoading && noteActions && noteActions.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {noteActions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={action.onClick}
+                  className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
           )}
           {/* Thought trail leading to the peacock */}
           <span aria-hidden="true" className="absolute -right-3.5 bottom-6 h-3.5 w-3.5 rounded-full border border-border bg-card shadow-sm sm:bottom-8" />

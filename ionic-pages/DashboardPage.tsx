@@ -1,7 +1,7 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Link, useHistory } from 'react-router-dom'
 import { IonPage, IonContent } from '@ionic/react'
 import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns'
 import { ArrowDownLeft, ArrowUpRight, BarChart3, ChevronRight, CreditCard, PieChart, Plus, SlidersHorizontal, Tag, type LucideIcon } from 'lucide-react'
@@ -26,6 +26,7 @@ import { SafeToSpendBody } from '@/components/page/home/safe-to-spend-card'
 import { useSafeToSpendInputs } from '@/hooks/use-safe-to-spend'
 import { safeToSpend } from '@/utils/safe-to-spend'
 import { TriageInbox, useUncategorized } from '@/components/page/transaction/triage-inbox'
+import { CheckInSheet } from '@/components/page/home/check-in-sheet'
 
 const SHORTCUTS: { label: string; hint: string; href: string; icon: LucideIcon }[] = [
   { label: 'Budgets', hint: 'Set spending limits', href: '/budgets', icon: PieChart },
@@ -185,6 +186,26 @@ export default function DashboardPage() {
   const backendHasBills = process.env.NEXT_PUBLIC_BACKEND === 'supabase'
   const { inputs: safeInputs, loading: safeLoading, wallets: safeWallets } = useSafeToSpendInputs()
   const safeResult = useMemo(() => (safeInputs ? safeToSpend(safeInputs) : null), [safeInputs])
+
+  const history = useHistory()
+  // The evening notification opens /dashboard?checkin=1.
+  const [checkInOpen, setCheckInOpen] = useState(false)
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href)
+      if (url.searchParams.get('checkin') !== '1') return
+      url.searchParams.delete('checkin')
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+      if (backendHasBills) setCheckInOpen(true)
+    } catch {
+      /* a malformed link just opens Home */
+    }
+  }, [backendHasBills])
+  const evening = new Date().getHours() >= 18
+  const noteActions = [
+    ...(backendHasBills && evening ? [{ label: 'Check in for today', onClick: () => setCheckInOpen(true) }] : []),
+    ...(categories.length > 0 && !insight ? [{ label: `Set a budget for ${categories[0].name}`, onClick: () => history.push('/budgets') }] : []),
+  ]
 
   const { items: unsorted } = useUncategorized()
   const toSort = unsorted.filter((t: any) => t.type !== 'transfer')
@@ -475,6 +496,7 @@ export default function DashboardPage() {
                   statsLoading={statsLoading}
                   balanceLoading={walletsLoading}
                   noteLoading={statsLoading || categoriesLoading}
+                  noteActions={noteActions}
                   period={period}
                   onPeriodChange={setPeriod}
                   showAmounts={showAmounts}
@@ -512,6 +534,7 @@ export default function DashboardPage() {
         </main>
       </IonContent>
       <CustomizeWidgetsSheet open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
+      {backendHasBills && checkInOpen && <CheckInSheet open={checkInOpen} onClose={() => setCheckInOpen(false)} />}
       {backendHasBills && inboxOpen && <TriageInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />}
     </IonPage>
   )
