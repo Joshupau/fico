@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SafeToSpendBody } from '@/components/page/home/safe-to-spend-card'
 import { useSafeToSpendInputs } from '@/hooks/use-safe-to-spend'
 import { safeToSpend } from '@/utils/safe-to-spend'
+import { TriageInbox, useUncategorized } from '@/components/page/transaction/triage-inbox'
 
 const SHORTCUTS: { label: string; hint: string; href: string; icon: LucideIcon }[] = [
   { label: 'Budgets', hint: 'Set spending limits', href: '/budgets', icon: PieChart },
@@ -185,7 +186,33 @@ export default function DashboardPage() {
   const { inputs: safeInputs, loading: safeLoading, wallets: safeWallets } = useSafeToSpendInputs()
   const safeResult = useMemo(() => (safeInputs ? safeToSpend(safeInputs) : null), [safeInputs])
 
+  const { items: unsorted } = useUncategorized()
+  const toSort = unsorted.filter((t: any) => t.type !== 'transfer')
+  const [inboxOpen, setInboxOpen] = useState(false)
+
   const widgetNodes: Record<WidgetId, React.ReactNode> = {
+    toSort:
+      !backendHasBills || toSort.length === 0 ? null : (
+        <Card>
+          <CardHeader title="To sort" />
+          <div className="flex items-center gap-3">
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {toSort.length}
+                {toSort.length >= 200 ? '+' : ''} transaction{toSort.length === 1 ? '' : 's'}
+              </span>{' '}
+              without a category. Swipe through them in a minute.
+            </p>
+            <button
+              type="button"
+              onClick={() => setInboxOpen(true)}
+              className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-ios"
+            >
+              Sort now
+            </button>
+          </div>
+        </Card>
+      ),
     // Needs open bills, which only the Supabase backend has.
     safeToSpend: !backendHasBills ? null : (
       <Card>
@@ -485,6 +512,7 @@ export default function DashboardPage() {
         </main>
       </IonContent>
       <CustomizeWidgetsSheet open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
+      {backendHasBills && inboxOpen && <TriageInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />}
     </IonPage>
   )
 }

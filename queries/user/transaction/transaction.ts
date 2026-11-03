@@ -551,3 +551,20 @@ export const useTopCategoryToday = (walletId?: string) => {
     enabled: true,
   });
 };
+
+// Sorting inbox: plain row updates that never move a wallet balance (no rebalance RPC), so they also
+// work offline. Setting the category only labels the row; "already in my balance" only flags it.
+const triageUpdate = async ({ id, patch }: { id: string; patch: { category_id?: string | null; affects_balance?: boolean } }) => {
+  if (!isSupabase()) throw new Error('Sorting needs the Supabase backend.');
+  const { error } = await supabase.from('transactions').update(patch).eq('id', id);
+  if (error) throw error;
+};
+
+export const useTriageTransaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: triageUpdate,
+    onSuccess: () => invalidateTransactionAndWalletQueries(queryClient),
+    onError: (error) => handleApiError(error),
+  });
+};
