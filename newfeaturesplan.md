@@ -84,8 +84,9 @@ Why: people stop using budgeting apps when logging feels like homework and the a
 - iOS cannot read other apps' notifications. Offer paste or Share-sheet capture there instead.
 
 ## B. Instant answer after each log
-- **Done on this branch:** `utils/safe-to-spend.ts` (`safeToSpend`, `applyTransaction`, `instantAnswer`). Tests: `scripts/test-safe-to-spend.mts`.
-- **To do:**
+- **Done on this branch:** `utils/safe-to-spend.ts` (`safeToSpend`, `applyTransaction`, `instantAnswer`, `safeToSpendInputs`). Tests: `scripts/test-safe-to-spend.mts`.
+- **Done (phase 1):** `hooks/use-safe-to-spend.ts`, the instant answer in the quick add "Saved!" toast, the `safeToSpend` Home widget (`components/page/home/safe-to-spend-card.tsx`) and the `safeToSpendFloor` setting. Cash counts bank, cash and e-wallets (not savings or cards) and payday comes from income bills, the same as the MCP tool. The toast stays plain when "Hide amounts on open" is on.
+- **Original to-do list:**
   1. A `useSafeToSpendInputs()` hook: cash wallets (`useListWallets`), unpaid bills (`useOpenBills`), future income (`useListPlannedItems` where type is income, plus income bills), spent today (`useSpentToday`), and a floor setting in `types/settings.ts`.
   2. In `quick-add-sheet.tsx` `finish()` and the agent's save path: run `applyTransaction` on the current inputs and show `instantAnswer(...)` in the success toast, so it doesn't wait for a refetch.
   3. Home widget `safeToSpend` (ring) reusing the same function.

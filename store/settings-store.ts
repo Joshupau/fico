@@ -11,6 +11,7 @@ type SettingsActions = {
   setDefaultLandingPage: (defaultLandingPage: LandingPage) => void
   setDateFormat: (dateFormat: DateFormat) => void
   setOnboardingCompleted: (value: boolean) => void
+  setSafeToSpendFloor: (value: number) => void
   resetSettings: () => void
 }
 
@@ -23,6 +24,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   defaultLandingPage: '/dashboard',
   dateFormat: 'MM/DD/YYYY',
   onboardingCompleted: false,
+  safeToSpendFloor: 0,
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -37,6 +39,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setDefaultLandingPage: (defaultLandingPage) => set({ defaultLandingPage }),
       setDateFormat: (dateFormat) => set({ dateFormat }),
       setOnboardingCompleted: (value) => set({ onboardingCompleted: value }),
+      setSafeToSpendFloor: (value) => set({ safeToSpendFloor: Math.max(0, Number(value) || 0) }),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {

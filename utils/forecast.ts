@@ -91,7 +91,7 @@ export function balancesAt(wallets: LedgerWallet[], txnsAfter: LedgerTxn[], asOf
 }
 
 /** The n-th occurrence after `date`, counted from the original date so month ends do not drift. */
-const occurrence = (date: Date, frequency: ForecastBill['recurringFrequency'], n: number): Date => {
+export const occurrence = (date: Date, frequency: ForecastBill['recurringFrequency'], n: number): Date => {
   switch (frequency) {
     case 'daily':
       return addDays(date, n)

@@ -28,4 +28,6 @@ export interface SettingsState {
   defaultLandingPage: LandingPage
   dateFormat: DateFormat
   onboardingCompleted: boolean
+  /** Money kept untouched when working out what is safe to spend, such as a bank's minimum balance. */
+  safeToSpendFloor: number
 }

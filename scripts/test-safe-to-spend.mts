@@ -1,5 +1,5 @@
 // Run: npx tsx scripts/test-safe-to-spend.mts
-import { safeToSpend, instantAnswer, applyTransaction } from '../utils/safe-to-spend'
+import { safeToSpend, instantAnswer, applyTransaction, safeToSpendInputs } from '../utils/safe-to-spend'
 
 let failures = 0
 let passes = 0
@@ -75,6 +75,36 @@ const toCard = safeToSpend(applyTransaction(base, { type: 'transfer', amount: 10
 check('paying a card from cash lowers usable', toCard.usable === r.usable - 1000, toCard)
 const between = safeToSpend(applyTransaction(base, { type: 'transfer', amount: 1000, fromCash: true, toCash: true }))
 check('moving between cash wallets changes nothing', between.usable === r.usable, between)
+
+// safeToSpendInputs: builds the inputs from wallets and open bills, as the Home card and quick add do.
+const built = safeToSpendInputs({
+  today,
+  floor: 500,
+  spentToday: 120,
+  wallets: [
+    { type: 'cash', balance: 1000 },
+    { type: 'ewallet', balance: '2500' },
+    { type: 'bank', balance: 8000 },
+    { type: 'savings', balance: 50000 }, // not spending money
+    { type: 'credit_card', balance: 3000 }, // owed, not cash
+    { type: 'bank', balance: 9999, status: 'archived' },
+  ],
+  openBills: [
+    { id: 'a', type: 'bill', name: 'Internet', amount: 1500, paidAmount: 500, dueDate: '2026-11-08', isRecurring: true, recurringFrequency: 'monthly', paymentStatus: 'partial' },
+    { id: 'b', type: 'bill', name: 'Rent', amount: 6000, dueDate: '2026-10-30', isRecurring: false, paymentStatus: 'overdue' },
+    { id: 'c', type: 'income', name: 'Salary', amount: 20000, dueDate: '2026-11-15', isRecurring: true, recurringFrequency: 'biweekly', paymentStatus: 'unpaid' },
+  ],
+})
+check('cash counts bank, cash and e-wallets only', built.cashBalance === 11500, built)
+check('partly paid bill counts what is left', built.bills.some((b) => b.dueDate === '2026-11-08' && b.amount === 1000), built.bills)
+check('recurring bill repeats at full amount', built.bills.some((b) => b.dueDate === '2026-12-08' && b.amount === 1500), built.bills)
+check('overdue bill kept', built.bills.some((b) => b.dueDate === '2026-10-30' && b.amount === 6000), built.bills)
+check('recurring income expands', built.incomes.some((i) => i.date === '2026-11-29'), built.incomes)
+check('month-end fallback', built.fallbackDays === 28, built.fallbackDays)
+const fromBuilt = safeToSpend(built)
+check('payday from income bills', fromBuilt.nextIncomeDate === '2026-11-15' && fromBuilt.days === 13, fromBuilt)
+check('bills before payday', fromBuilt.billsBefore === 7000, fromBuilt)
+check('usable after floor and bills', fromBuilt.usable === 11500 - 500 - 7000, fromBuilt)
 
 console.log(`${passes} passed, ${failures} failed`)
 if (failures) process.exit(1)

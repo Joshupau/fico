@@ -22,6 +22,9 @@ import { CustomizeWidgetsSheet } from '@/components/page/home/customize-widgets-
 import { getCategoryTotal, normalizeCategoryData } from '@/components/page/statistics/statistics-utils'
 import { formatMoney } from '@/utils/formatter'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SafeToSpendBody } from '@/components/page/home/safe-to-spend-card'
+import { useSafeToSpendInputs } from '@/hooks/use-safe-to-spend'
+import { safeToSpend } from '@/utils/safe-to-spend'
 
 const SHORTCUTS: { label: string; hint: string; href: string; icon: LucideIcon }[] = [
   { label: 'Budgets', hint: 'Set spending limits', href: '/budgets', icon: PieChart },
@@ -178,7 +181,18 @@ export default function DashboardPage() {
   const { holdings: coinHoldings, liveById: coinLive, loading: coinsLoading } = useLiveHoldings(investments)
   const coinTotal = coinHoldings.reduce((sum, h) => sum + (coinLive[h.id]?.value ?? Number(h.currentValue) ?? 0), 0)
 
+  const backendHasBills = process.env.NEXT_PUBLIC_BACKEND === 'supabase'
+  const { inputs: safeInputs, loading: safeLoading } = useSafeToSpendInputs()
+  const safeResult = useMemo(() => (safeInputs ? safeToSpend(safeInputs) : null), [safeInputs])
+
   const widgetNodes: Record<WidgetId, React.ReactNode> = {
+    // Needs open bills, which only the Supabase backend has.
+    safeToSpend: !backendHasBills ? null : (
+      <Card>
+        <CardHeader title="Safe to spend" to="/bills" linkLabel="Bills" />
+        <SafeToSpendBody result={safeResult} loading={safeLoading} money={money} spentToday={safeInputs?.spentToday ?? 0} />
+      </Card>
+    ),
     yourMoney: (
                     <Card className="order-3 lg:order-none">
                 <CardHeader title="Your money" to="/wallets" linkLabel="Open" />

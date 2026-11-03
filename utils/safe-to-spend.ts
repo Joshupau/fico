@@ -1,4 +1,5 @@
-import { differenceInCalendarDays, parseISO, startOfDay, format } from 'date-fns'
+import { addDays, differenceInCalendarDays, endOfMonth, parseISO, startOfDay, format } from 'date-fns'
+import { occurrence, type ForecastBill } from '@/utils/forecast'
 
 /**
  * How much you can spend today without running short before the next income.
@@ -106,4 +107,54 @@ export function applyTransaction(
   // A transfer only changes the cash total when it crosses between cash and a card or loan.
   const delta = (txn.toCash ? amount : 0) - (txn.fromCash ? amount : 0)
   return { ...input, cashBalance: input.cashBalance + delta }
+}
+
+/** Wallet types whose money you spend day to day. Savings and credit cards are left out, as in the MCP `safe_to_spend` tool. */
+export const isCashWallet = (type?: string) => type !== 'savings' && type !== 'credit_card'
+
+/**
+ * Builds the inputs from what the app already loads: active wallets, open bills (expense and income,
+ * recurring ones expanded) and today's spending. With no income on the Bills page it counts to the end
+ * of the month, the same fallback the MCP tool uses.
+ */
+export function safeToSpendInputs(data: {
+  wallets: { type?: string; balance?: number | string; status?: string }[]
+  openBills: ForecastBill[]
+  spentToday?: number
+  floor?: number
+  today?: Date
+}): SafeToSpendInput {
+  const today = startOfDay(data.today ?? new Date())
+  const horizon = addDays(today, 62)
+  const cashBalance = data.wallets
+    .filter((w) => w.status !== 'archived' && isCashWallet(w.type))
+    .reduce((sum, w) => sum + (Number(w.balance) || 0), 0)
+
+  const bills: SafeToSpendInput['bills'] = []
+  const incomes: SafeToSpendInput['incomes'] = []
+  for (const bill of data.openBills) {
+    const due = startOfDay(parseISO(String(bill.dueDate)))
+    const add = (date: Date, amount: number) => {
+      if (amount <= 0) return
+      if (bill.type === 'income') incomes.push({ date: ymd(date), amount })
+      else bills.push({ dueDate: ymd(date), amount })
+    }
+    add(due, Math.max(0, (Number(bill.amount) || 0) - (Number(bill.paidAmount) || 0)))
+    if (!bill.isRecurring || !bill.recurringFrequency) continue
+    for (let n = 1, next = occurrence(due, bill.recurringFrequency, 1); next <= horizon && n < 400; next = occurrence(due, bill.recurringFrequency, ++n)) {
+      // Later occurrences that already passed were paid or skipped; only the open one is still owed.
+      if (next < today) continue
+      add(next, Number(bill.amount) || 0)
+    }
+  }
+
+  return {
+    cashBalance,
+    floor: data.floor,
+    bills,
+    incomes,
+    spentToday: data.spentToday,
+    today,
+    fallbackDays: Math.max(1, differenceInCalendarDays(endOfMonth(today), today)),
+  }
 }
