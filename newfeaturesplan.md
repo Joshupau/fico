@@ -66,3 +66,27 @@ This plan describes the UI/UX requirements for the new Obligations and Investmen
 - `GET /obligation/list`: `?direction=debt&status=active`
 - `POST /investment/update-value`: `{ id, value, notes }`
 - `POST /investment/sell`: `{ id, saleAmount, walletId }`
+
+---
+
+# Retention plan: auto-capture and an instant answer
+
+Why: people stop using budgeting apps when logging feels like homework and the app gives little back. Two changes target that first.
+
+## A. Auto-capture from notifications (Android first)
+- **Done on this branch:** `utils/notification-parser.ts` turns the text of a bank or e-wallet alert into a transaction to confirm (amount, direction, counterparty, wallet, reference), ignores OTPs and balance alerts, and `makeDuplicateGuard` stops one alert being logged twice. Tests: `scripts/test-notification-parser.mts`.
+- **To do:**
+  1. Replace the sample texts in the test with real GCash, Maya, GoTyme, BDO and BPI notifications (the samples are written from the general shape, not copied).
+  2. Capacitor plugin on Android using `NotificationListenerService`; the user grants "Notification access" in Settings, and the app only reads the apps in `NOTIFICATION_SOURCES`.
+  3. A "To confirm" tray: each captured item shows as a card with the parsed fields and Confirm / Edit / Dismiss. Nothing is saved without a tap at first; add an opt-in "auto-save high-confidence items" later.
+  4. Map `sourceWalletName` to the user's wallet through `matchWallet`; ask once if there's no match.
+  5. Privacy: process on device, store only the parsed fields and the reference, never the raw text.
+- iOS cannot read other apps' notifications. Offer paste or Share-sheet capture there instead.
+
+## B. Instant answer after each log
+- **Done on this branch:** `utils/safe-to-spend.ts` (`safeToSpend`, `applyTransaction`, `instantAnswer`). Tests: `scripts/test-safe-to-spend.mts`.
+- **To do:**
+  1. A `useSafeToSpendInputs()` hook: cash wallets (`useListWallets`), unpaid bills (`useOpenBills`), future income (`useListPlannedItems` where type is income, plus income bills), spent today (`useSpentToday`), and a floor setting in `types/settings.ts`.
+  2. In `quick-add-sheet.tsx` `finish()` and the agent's save path: run `applyTransaction` on the current inputs and show `instantAnswer(...)` in the success toast, so it doesn't wait for a refetch.
+  3. Home widget `safeToSpend` (ring) reusing the same function.
+  4. Note: `useOpenBills` and `useAllWallets` assert the Supabase backend; the local backend needs equivalents, or the answer is skipped when the data isn't available.
