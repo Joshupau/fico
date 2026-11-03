@@ -27,6 +27,12 @@ const isSupabase = () => process.env.NEXT_PUBLIC_BACKEND === 'supabase';
 const isPastPeriod = (params?: quickStatsTransactionParams) =>
   isSupabase() && !!params?.offset && params.offset < 0 && isShiftablePeriod(params.period);
 
+// Charts and the category split are bucketed on the device for every day/week/month/year, the current
+// one included: the RPCs bucket in the database's time zone (UTC) and number weekdays from Sunday, so a
+// tapped bar or slice would not match the transactions listed for it in local time.
+const isLocalBucketed = (params?: quickStatsTransactionParams) =>
+  isSupabase() && !!params && isShiftablePeriod(params.period) && (params.offset ?? 0) <= 0;
+
 // Shared by any mutation that can move a wallet balance (create/update/delete
 // transaction) — without this, wallet balances and dashboard stats stay
 // stale in every screen except the one that happens to call its own refetch.
@@ -128,11 +134,11 @@ const listTransactions = async (params: ListTransactionsParams) => {
   return response.data;
 };
 
-export const useListTransactions = (params?: ListTransactionsParams) => {
+export const useListTransactions = (params?: ListTransactionsParams, enabled = true) => {
   return useQuery({
     queryKey: ["transactions", params],
     queryFn: () => listTransactions(params || {}),
-    enabled: true,
+    enabled,
   });
 };
 
@@ -454,9 +460,9 @@ export const useTransactionTags = () => {
 };
 
 const getChartData = async (params?: quickStatsTransactionParams) => {
-  if (params && isPastPeriod(params)) {
-    const rows = await fetchRangeRows(params.period as any, params.offset!, params.walletId);
-    return { message: 'success', data: buildChartData(rows, params.period as any, params.offset!) };
+  if (params && isLocalBucketed(params)) {
+    const rows = await fetchRangeRows(params.period as any, params.offset ?? 0, params.walletId);
+    return { message: 'success', data: buildChartData(rows, params.period as any, params.offset ?? 0) };
   }
   if (isSupabase()) {
     const { data, error } = await supabase.rpc('reports_chart_data', {
@@ -479,8 +485,8 @@ export const useTransactionChartData = (params?: quickStatsTransactionParams) =>
 };
 
 export const getTopCategories = async (params?: quickStatsTransactionParams) => {
-  if (params && isPastPeriod(params)) {
-    const rows = await fetchRangeRows(params.period as any, params.offset!, params.walletId);
+  if (params && isLocalBucketed(params)) {
+    const rows = await fetchRangeRows(params.period as any, params.offset ?? 0, params.walletId);
     return { message: 'success', data: buildCategoryBreakdown(rows, params.type ?? 'expense') };
   }
   if (isSupabase()) {
@@ -543,5 +549,22 @@ export const useTopCategoryToday = (walletId?: string) => {
     queryKey: ["transactions-top-category-today", walletId],
     queryFn: () => getTopCategoryToday(walletId),
     enabled: true,
+  });
+};
+
+// Sorting inbox: plain row updates that never move a wallet balance (no rebalance RPC), so they also
+// work offline. Setting the category only labels the row; "already in my balance" only flags it.
+const triageUpdate = async ({ id, patch }: { id: string; patch: { category_id?: string | null; affects_balance?: boolean } }) => {
+  if (!isSupabase()) throw new Error('Sorting needs the Supabase backend.');
+  const { error } = await supabase.from('transactions').update(patch).eq('id', id);
+  if (error) throw error;
+};
+
+export const useTriageTransaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: triageUpdate,
+    onSuccess: () => invalidateTransactionAndWalletQueries(queryClient),
+    onError: (error) => handleApiError(error),
   });
 };

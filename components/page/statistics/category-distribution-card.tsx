@@ -1,7 +1,7 @@
 'use client'
 
 import { EmptyState } from '@/components/peacock-mascot'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { ChartPie, Layers3 } from 'lucide-react'
 import {
   Cell,
@@ -15,6 +15,8 @@ import { useTopCategories } from '@/queries/user/transaction/transaction'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import { getCategoryTotal, normalizeCategoryData, type CategoryDatum } from './statistics-utils'
+import { SliceTransactionsSheet, type Slice } from './slice-transactions-sheet'
+import { describePeriod, getPeriodRange, isShiftablePeriod } from '@/queries/user/transaction/period-range'
 
 type StatisticsProps = {
   period: 'today' | 'week' | 'month' | 'year' | 'all'
@@ -48,6 +50,19 @@ export function CategoryDistributionCard({ period, walletId, offset = 0 }: Stati
   const total = useMemo(() => getCategoryTotal(categories), [categories])
 
   const chartData = categories.length > 0 ? categories : []
+  const [slice, setSlice] = useState<Slice | null>(null)
+  const openCategory = (category: CategoryDatum) => {
+    if (!category.categoryId) return
+    const range = isShiftablePeriod(period) ? getPeriodRange(period, offset) : null
+    setSlice({
+      title: category.name,
+      subtitle: describePeriod(period, offset),
+      type: 'expense',
+      categoryId: category.categoryId,
+      walletId,
+      ...(range ? { start: range.start, end: range.end } : {}),
+    })
+  }
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 shadow-ios flex flex-col self-start">
@@ -79,6 +94,8 @@ export function CategoryDistributionCard({ period, walletId, offset = 0 }: Stati
                   outerRadius={86}
                   paddingAngle={3}
                   stroke="transparent"
+                  onClick={(entry: any) => openCategory((entry?.payload ?? entry) as CategoryDatum)}
+                  style={{ cursor: 'pointer' }}
                 >
                   {chartData.map((entry) => (
                     <Cell key={entry.id} fill={entry.color} />
@@ -90,7 +107,12 @@ export function CategoryDistributionCard({ period, walletId, offset = 0 }: Stati
 
           <div className="space-y-3">
             {chartData.slice(0, 5).map((category, index) => (
-              <div key={category.id} className="rounded-xl border border-border bg-secondary/20 p-3">
+              <button
+                type="button"
+                key={category.id}
+                onClick={() => openCategory(category)}
+                className="block w-full rounded-xl border border-border bg-secondary/20 p-3 text-left transition-colors hover:border-primary/50"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <span className="mt-1 h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
@@ -104,7 +126,7 @@ export function CategoryDistributionCard({ period, walletId, offset = 0 }: Stati
                     <p className="text-xs text-muted-foreground">{category.percentage.toFixed(1)}%</p>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
 
             <div className="rounded-xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground flex items-center gap-2">
@@ -123,6 +145,7 @@ export function CategoryDistributionCard({ period, walletId, offset = 0 }: Stati
           />
         </div>
       )}
+      <SliceTransactionsSheet slice={slice} onClose={() => setSlice(null)} />
     </div>
   )
 }

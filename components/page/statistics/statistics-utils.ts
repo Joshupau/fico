@@ -4,6 +4,8 @@ import { extractArrayFromApiResponse } from '@/lib/api-response'
 
 export type CategoryDatum = {
   id: string
+  /** The category's id for filtering transactions; 'none' for uncategorized. */
+  categoryId?: string
   name: string
   amount: number
   percentage: number
@@ -59,8 +61,10 @@ export const normalizeCategoryData = (payload: unknown): CategoryDatum[] => {
       const percentage = percentageValue > 0 ? percentageValue : grandTotal > 0 ? (entry.amount / grandTotal) * 100 : 0
       const categoryColor = item.categoryColor ?? item.color
 
+      const rawCategoryId = 'categoryId' in item ? item.categoryId : (item._id ?? item.id)
       return {
         id,
+        categoryId: rawCategoryId == null ? ('categoryId' in item ? 'none' : undefined) : String(rawCategoryId),
         name: resolveName(item, `Category ${index + 1}`),
         amount: entry.amount,
         percentage,

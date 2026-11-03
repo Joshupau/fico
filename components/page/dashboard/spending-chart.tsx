@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { addDays, addHours, addMonths, format } from 'date-fns'
 import { TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react'
 import {
   AreaChart,
@@ -15,7 +16,8 @@ import {
 import { useTransactionChartData } from '@/queries/user/transaction/transaction'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
-import { describePeriod } from '@/queries/user/transaction/period-range'
+import { describePeriod, getPeriodRange, isShiftablePeriod } from '@/queries/user/transaction/period-range'
+import { SliceTransactionsSheet, type Slice } from '@/components/page/statistics/slice-transactions-sheet'
 
 type PeriodType = 'today' | 'week' | 'month' | 'year' | 'all'
 
@@ -43,9 +45,28 @@ function CustomTooltip({ active, payload, label }: TooltipProps<number, string>)
   )
 }
 
+/** The window one chart point covers: an hour, a day or a month of the period. */
+function slotWindow(period: PeriodType, offset: number, index: number): { start: Date; end: Date } | null {
+  if (!isShiftablePeriod(period)) return null
+  const { start } = getPeriodRange(period, offset)
+  if (period === 'today') return { start: addHours(start, index), end: addHours(start, index + 1) }
+  if (period === 'year') return { start: addMonths(start, index), end: addMonths(start, index + 1) }
+  return { start: addDays(start, index), end: addDays(start, index + 1) }
+}
+
 export function SpendingChart({ period, walletId, offset = 0 }: ChartProps) {
   const { data: chartDataResponse, isLoading } = useTransactionChartData({ period, walletId, offset })
   const { currency } = useSettingsStore()
+  const [slice, setSlice] = useState<Slice | null>(null)
+
+  const openPoint = (index: number | undefined) => {
+    if (index === undefined || index === null) return
+    const slot = slotWindow(period, offset, Number(index))
+    if (!slot) return
+    const title =
+      period === 'today' ? `${format(slot.start, 'h a')} – ${format(slot.end, 'h a')}` : period === 'year' ? format(slot.start, 'MMMM yyyy') : format(slot.start, 'EEEE, MMM d')
+    setSlice({ title, subtitle: 'Income and expenses', start: slot.start, end: slot.end, walletId })
+  }
 
   const { chartData } = useMemo(() => {
     const raw = chartDataResponse?.data
@@ -90,7 +111,12 @@ export function SpendingChart({ period, walletId, offset = 0 }: ChartProps) {
       ) : (
         <div className="flex-1 min-h-[180px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+            <AreaChart
+              data={chartData}
+              margin={{ top: 4, right: 4, left: -24, bottom: 0 }}
+              onClick={(state: any) => openPoint(state?.activeTooltipIndex)}
+              style={{ cursor: isShiftablePeriod(period) ? 'pointer' : undefined }}
+            >
               <defs>
                 <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
@@ -138,6 +164,8 @@ export function SpendingChart({ period, walletId, offset = 0 }: ChartProps) {
           </ResponsiveContainer>
         </div>
       )}
+      {isShiftablePeriod(period) && !isLoading && <p className="mt-2 text-[11px] text-muted-foreground">Tap a point to see its transactions.</p>}
+      <SliceTransactionsSheet slice={slice} onClose={() => setSlice(null)} />
     </div>
   )
 }
