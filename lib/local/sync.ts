@@ -24,6 +24,9 @@ export const SYNCED_TABLES = [
   'categories',
   'transactions',
   'bills',
+  // Plans and their groups before budgets, which point at a group.
+  'budget_plans',
+  'budget_plan_groups',
   'budgets',
   'obligations',
   'investments',

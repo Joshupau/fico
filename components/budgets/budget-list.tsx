@@ -27,6 +27,7 @@ interface BudgetViewModel {
   alertThreshold: number
   categoryIds: string[]
   categories: BudgetCategory[]
+  groupId: string | null
   percentageUsed: number
   isOverBudget: boolean
   isNearThreshold: boolean
@@ -43,6 +44,7 @@ interface BudgetApiItem {
   alertThreshold?: number
   categoryIds?: string[]
   categories?: BudgetCategory[]
+  groupId?: string | null
   startDate?: string
   endDate?: string
 }
@@ -65,6 +67,7 @@ const normalizeBudget = (budget: BudgetApiItem, index: number): BudgetViewModel 
     alertThreshold: alertThreshold,
     categoryIds: budget.categoryIds ?? [],
     categories: budget.categories ?? [],
+    groupId: budget.groupId ?? null,
     percentageUsed: percentageUsed,
     isOverBudget: spentAmount > budgetAmount,
     isNearThreshold: percentageUsed >= alertThreshold && spentAmount <= budgetAmount,
