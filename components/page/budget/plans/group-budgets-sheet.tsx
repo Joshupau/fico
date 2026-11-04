@@ -20,7 +20,10 @@ interface GroupBudgetsSheetProps {
   onCreateBudget: () => void
 }
 
-/** Pick which budgets belong to a spending group. A budget is in at most one group. */
+/**
+ * Move budgets into a spending group. A budget is in exactly one group, so budgets already here stay
+ * (move them from their own edit sheet, or remove them).
+ */
 export function GroupBudgetsSheet({ open, onClose, group, lines, plans, onCreateBudget }: GroupBudgetsSheetProps) {
   const { currency, hideAmountsOnOpen } = useSettingsStore()
   const { mutateAsync: setGroup, isPending } = useSetBudgetGroup()
@@ -47,10 +50,8 @@ export function GroupBudgetsSheet({ open, onClose, group, lines, plans, onCreate
   const submit = async () => {
     if (!group) return
     const add = lines.filter((l) => picked.has(l.id) && l.groupId !== group.id).flatMap((l) => l.rowIds)
-    const remove = lines.filter((l) => !picked.has(l.id) && l.groupId === group.id).flatMap((l) => l.rowIds)
     try {
       if (add.length) await setGroup({ budgetIds: add, groupId: group.id })
-      if (remove.length) await setGroup({ budgetIds: remove, groupId: null })
       toast.success('Group updated')
       onClose()
     } catch {
@@ -63,7 +64,7 @@ export function GroupBudgetsSheet({ open, onClose, group, lines, plans, onCreate
       open={open}
       onClose={onClose}
       title={group ? `Budgets in ${group.name}` : 'Budgets'}
-      description="Pick the budgets whose spending counts toward this group."
+      description="Pick budgets to move into this group. Their spending then counts here."
       submitLabel="Save"
       onSubmit={submit}
       busy={isPending}
@@ -80,10 +81,11 @@ export function GroupBudgetsSheet({ open, onClose, group, lines, plans, onCreate
                 key={l.id}
                 type="button"
                 aria-pressed={selected}
+                disabled={l.groupId === group?.id}
                 onClick={() => toggle(l.id)}
                 className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
                   selected ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/50'
-                }`}
+                } disabled:cursor-default`}
               >
                 <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>
                   {selected && <Check className="h-3.5 w-3.5" />}
@@ -91,7 +93,7 @@ export function GroupBudgetsSheet({ open, onClose, group, lines, plans, onCreate
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">{l.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {formatMoney(l.limit, currency, hideAmountsOnOpen)} a month{elsewhere ? ` · now in ${elsewhere}` : ''}
+                    {formatMoney(l.limit, currency, hideAmountsOnOpen)} a month{l.groupId === group?.id ? ' · in this group' : elsewhere ? ` · now in ${elsewhere}` : !l.groupId ? ' · not in a plan' : ''}
                   </p>
                 </div>
               </button>

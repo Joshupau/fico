@@ -65,6 +65,8 @@ export default function BudgetModal({
   const { mutate: setBudgetGroup } = useSetBudgetGroup()
   const [groupId, setGroupId] = React.useState<string | null>(null)
   const groupOptions = (plans ?? []).flatMap((plan) => plan.groups.map((g) => ({ id: g.id, label: `${plan.name} · ${g.name}`, kind: g.kind })))
+  const spendGroupOptions = groupOptions.filter((g) => g.kind === 'spend')
+  const [groupError, setGroupError] = React.useState(false)
   const { refetch: refetchBudgets } = useListBudgets()
   const { refetch: refetchSummary } = useBudgetSummary()
   const { mutate: createBudget, isPending } = useCreateBudget()
@@ -94,6 +96,7 @@ export default function BudgetModal({
   useEffect(() => {
     if (!open) return
     setGroupId(budget ? budget.groupId ?? null : defaultGroupId)
+    setGroupError(false)
 
     if (budget) {
       form.reset({
@@ -116,6 +119,11 @@ export default function BudgetModal({
   }, [open, budget, form, defaultGroupId])
 
   const onSubmit = (data: BudgetFormValues) => {
+    // Every budget lives in a plan group, once plans are available.
+    if (spendGroupOptions.length > 0 && !groupId) {
+      setGroupError(true)
+      return
+    }
     // Calculate startDate/endDate as the current calendar period (not a
     // rolling window from "right now"), so a budget created mid-period picks
     // up transactions already logged earlier in that period — matching how
@@ -292,19 +300,22 @@ export default function BudgetModal({
             )}
           </div>
 
-          {groupOptions.length > 0 && (
+          {spendGroupOptions.length > 0 && (
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Plan group</label>
-              <p className="text-xs text-muted-foreground">Optional. Its spending counts toward that group of your plan.</p>
+              <p className="text-xs text-muted-foreground">Its spending counts toward this group of your plan.</p>
               <div className="flex flex-wrap gap-2">
-                {[{ id: null as string | null, label: 'No plan', kind: 'spend' as const }, ...groupOptions.filter((g) => g.kind === 'spend' || g.id === groupId)].map((g) => {
+                {spendGroupOptions.map((g) => {
                   const selected = groupId === g.id
                   return (
                     <button
-                      key={g.id ?? 'none'}
+                      key={g.id}
                       type="button"
                       aria-pressed={selected}
-                      onClick={() => setGroupId(g.id)}
+                      onClick={() => {
+                        setGroupId(g.id)
+                        setGroupError(false)
+                      }}
                       className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition-colors ${
                         selected ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary/30 text-foreground'
                       }`}
@@ -315,6 +326,7 @@ export default function BudgetModal({
                   )
                 })}
               </div>
+              {groupError && <p className="text-[10px] font-bold text-destructive uppercase">Pick the plan group this budget belongs to</p>}
             </div>
           )}
 

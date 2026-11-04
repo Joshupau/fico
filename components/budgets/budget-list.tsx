@@ -79,8 +79,6 @@ interface BudgetListProps {
   month: Date
   /** Only the budgets in this plan group. */
   groupId?: string
-  /** Only budgets that are not in a plan group (ids of the groups that exist). */
-  ungroupedOf?: Set<string>
   /** Title of the section header. */
   title?: string
   /** Inside a plan group: no header, a smaller empty state and an "Add budget" tile. */
@@ -89,7 +87,7 @@ interface BudgetListProps {
   onAdd?: () => void
 }
 
-export default function BudgetList({ month, groupId, ungroupedOf, title = 'Active Goals', bare = false, onAdd }: BudgetListProps) {
+export default function BudgetList({ month, groupId, title = 'Active Goals', bare = false, onAdd }: BudgetListProps) {
   const [open, setOpen] = useState(false)
   const [selectedBudget, setSelectedBudget] = useState<BudgetViewModel | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -144,13 +142,11 @@ export default function BudgetList({ month, groupId, ungroupedOf, title = 'Activ
     return items
       .filter((budget) => budgetOverlapsMonth(budget, month))
       .filter((budget) => {
-        const g = budget.groupId ?? null
-        if (groupId) return g === groupId
-        if (ungroupedOf) return !g || !ungroupedOf.has(g)
+        if (groupId) return (budget.groupId ?? null) === groupId
         return true
       })
       .map((budget, budgetIndex) => normalizeBudget(budget, budgetIndex))
-  }, [budgetResponse, month, groupId, ungroupedOf])
+  }, [budgetResponse, month, groupId])
 
   // Yearly budgets also show what was spent in the month being viewed.
   const hasYearly = budgets.some((b) => b.period === 'yearly')
@@ -292,15 +288,6 @@ export default function BudgetList({ month, groupId, ungroupedOf, title = 'Activ
             )
           ))}
         </div>
-      ) : ungroupedOf ? (
-        <button
-          type="button"
-          onClick={openNew}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/40 p-6 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-        >
-          <Plus className="h-4 w-4" />
-          Budgets that aren&apos;t in a plan show here. Add one
-        </button>
       ) : (
         <div className="flex flex-col items-center justify-center bg-card/40 border border-dashed border-border rounded-[2.5rem] py-20 px-6 text-center">
           <div className="p-6 bg-primary/5 rounded-full mb-6">

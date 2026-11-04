@@ -52,6 +52,13 @@ export const useListPlans = () =>
     },
   });
 
+/** Budgets live only inside plans, so a group's budgets go when the group goes (archived: past months keep them). */
+const archiveGroupBudgets = async (groupIds: string[]) => {
+  if (!groupIds.length) return;
+  const { error } = await supabase.from('budgets').update({ status: 'archived' }).in('group_id', groupIds).neq('status', 'archived');
+  if (error) throw error;
+};
+
 const useInvalidate = () => {
   const queryClient = useQueryClient();
   return () =>
@@ -62,8 +69,8 @@ const useInvalidate = () => {
 };
 
 /**
- * Creates or updates a plan with its groups. Groups left out of `groups` are deleted (their budgets
- * stay, ungrouped). Each spending group's budget is made (a monthly budget for this month, which then
+ * Creates or updates a plan with its groups. Groups left out of `groups` are deleted, and their
+ * budgets are removed with them. Each spending group's budget is made (a monthly budget for this month, which then
  * renews every month) or updated to the group's target and categories.
  */
 export const useSavePlan = () => {
@@ -103,6 +110,7 @@ export const useSavePlan = () => {
       }
       for (const id of data.existingGroupIds ?? []) {
         if (kept.has(id)) continue;
+        await archiveGroupBudgets([id]);
         const { error } = await supabase.from('budget_plan_groups').delete().eq('id', id);
         if (error) throw error;
       }
@@ -142,12 +150,15 @@ export const useSavePlan = () => {
   });
 };
 
-/** Deletes a plan and its groups. Its budgets stay, as everyday budgets. */
+/** Deletes a plan, its groups and their budgets (archived, so past months and transactions keep them). */
 export const useDeletePlan = () => {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       assertSupabase();
+      const { data: groups, error: groupsError } = await supabase.from('budget_plan_groups').select('id').eq('plan_id', id);
+      if (groupsError) throw groupsError;
+      await archiveGroupBudgets((groups ?? []).map((g: { id: string }) => String(g.id)));
       const { error } = await supabase.from('budget_plans').delete().eq('id', id);
       if (error) throw error;
     },
