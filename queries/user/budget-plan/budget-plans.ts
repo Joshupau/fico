@@ -6,7 +6,7 @@ import { supabase } from "@/utils/supabase-client";
 import { toCamelCase } from "@/utils/case-transform";
 import { handleApiError } from "@/utils/error-handler";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { BudgetPlan, BudgetPlanGroup, SavePlanData } from "@/types/budget-plan";
+import type { BudgetPlan, BudgetPlanGroup, PlanGroupBudget, SavePlanData } from "@/types/budget-plan";
 import type { MonthTxn } from "@/utils/budget-plans";
 
 const assertSupabase = () => {
@@ -17,7 +17,7 @@ const assertSupabase = () => {
 
 const num = (value: unknown) => (value === null || value === undefined || value === '' ? null : Number(value));
 
-const newId = () =>
+export const newId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -57,15 +57,19 @@ const useInvalidate = () => {
   return () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["budget-plans"] }),
-      queryClient.invalidateQueries({ queryKey: ["budgets"] }),
+      ...["budgets", "current-budgets", "budget-summary", "budget-performance"].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
     ]);
 };
 
-/** Creates or updates a plan with its groups. Groups left out of `groups` are deleted (their budgets stay, ungrouped). */
+/**
+ * Creates or updates a plan with its groups. Groups left out of `groups` are deleted (their budgets
+ * stay, ungrouped). Each spending group's budget is made (a monthly budget for this month, which then
+ * renews every month) or updated to the group's target and categories.
+ */
 export const useSavePlan = () => {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async (data: SavePlanData & { existingGroupIds?: string[]; sortOrder?: number }) => {
+    mutationFn: async (data: SavePlanData & { existingGroupIds?: string[]; sortOrder?: number; budgets?: PlanGroupBudget[] }) => {
       assertSupabase();
       const planId = data.id ?? newId();
       const planRow = { name: data.name, income: data.income, color: data.color };
@@ -88,12 +92,12 @@ export const useSavePlan = () => {
           wallet_ids: g.walletIds,
           sort_order: index,
         };
-        if (g.id) {
-          kept.add(g.id);
+        kept.add(g.id);
+        if (!g.isNew) {
           const { error } = await supabase.from('budget_plan_groups').update(row).eq('id', g.id);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from('budget_plan_groups').insert({ id: newId(), plan_id: planId, ...row });
+          const { error } = await supabase.from('budget_plan_groups').insert({ id: g.id, plan_id: planId, ...row });
           if (error) throw error;
         }
       }
@@ -101,6 +105,35 @@ export const useSavePlan = () => {
         if (kept.has(id)) continue;
         const { error } = await supabase.from('budget_plan_groups').delete().eq('id', id);
         if (error) throw error;
+      }
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+      for (const b of data.budgets ?? []) {
+        if (!kept.has(b.groupId) || b.amount <= 0) continue;
+        if (b.budgetId) {
+          const { error } = await supabase
+            .from('budgets')
+            .update({ amount: b.amount, category_ids: b.categoryIds, category_id: b.categoryIds[0] ?? null, group_id: b.groupId })
+            .eq('id', b.budgetId);
+          if (error) throw error;
+        } else {
+          const { data: row, error } = await supabase.rpc('budgets_create', {
+            p_name: b.name,
+            p_amount: b.amount,
+            p_period: 'monthly',
+            p_start_date: start,
+            p_category_ids: b.categoryIds,
+            p_end_date: end,
+            p_alert_threshold: 80,
+          });
+          if (error) throw error;
+          const id = (row as { id?: string } | null)?.id;
+          if (id) {
+            const { error: linkError } = await supabase.from('budgets').update({ group_id: b.groupId }).eq('id', id);
+            if (linkError) throw linkError;
+          }
+        }
       }
       return planId;
     },

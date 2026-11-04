@@ -114,6 +114,7 @@ export function PlansSection({ data, month }: { data: BudgetMonth; month: Date }
         monthIncome={summary.income}
         wallets={data.savingsWallets}
         nextSortOrder={plans.length}
+        lines={lines}
       />
       <GroupBudgetsSheet
         open={!!groupSheet}

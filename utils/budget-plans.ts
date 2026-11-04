@@ -52,6 +52,8 @@ export type MonthBudgetLine = {
   /** Every row of this budget inside the month. */
   rowIds: string[]
   name: string
+  categoryIds: string[]
+  period: string
   groupId: string | null
   limit: number
   spent: number
@@ -80,6 +82,8 @@ export function monthBudgetLines(budgets: PlanBudget[], month: Date, yearlyMonth
     id: latest.id,
     rowIds,
     name: latest.name,
+    categoryIds: latest.categoryIds,
+    period: latest.period,
     groupId: latest.groupId,
     limit: monthlyLimit(latest, month),
     spent,
