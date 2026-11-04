@@ -94,11 +94,20 @@ export function instantAnswer(after: SafeToSpend, money: (n: number) => string):
 /** A transaction's effect on the inputs, so the answer can be worked out before the data refetches. */
 export function applyTransaction(
   input: SafeToSpendInput,
-  txn: { type: 'income' | 'expense' | 'transfer'; amount: number; fromCash: boolean; toCash?: boolean; affectsBalance?: boolean }
+  txn: {
+    type: 'income' | 'expense' | 'transfer'
+    amount: number
+    fromCash: boolean
+    toCash?: boolean
+    affectsBalance?: boolean
+    /** The wallet is left out of safe to spend (turned off, or savings), so its spending doesn't count. */
+    fromExcluded?: boolean
+  }
 ): SafeToSpendInput {
   if (txn.affectsBalance === false) return input
   const amount = Number(txn.amount) || 0
   if (txn.type === 'expense') {
+    if (txn.fromExcluded) return input
     // Card spending counts too: the card bill will be paid out of cash, so it uses up today's allowance.
     return { ...input, cashBalance: input.cashBalance - amount, spentToday: (input.spentToday ?? 0) + amount }
   }
@@ -133,6 +142,8 @@ export function safeToSpendInputs(data: {
   planned?: { type: 'income' | 'expense'; date: string; amountHigh: number; amountLow?: number }[]
   rules?: Record<string, SafeWalletRule>
   spentToday?: number
+  /** Today's spending per wallet id. When given, spending from wallets left out of the total is dropped. */
+  spentByWallet?: Record<string, number>
   floor?: number
   today?: Date
 }): SafeToSpendInput {
@@ -145,6 +156,18 @@ export function safeToSpendInputs(data: {
       if (!walletCounts(w, rule)) return sum
       return sum + Math.max(0, (Number(w.balance) || 0) - Math.max(0, Number(rule?.min) || 0))
     }, 0)
+
+  let spentToday = data.spentToday
+  if (data.spentByWallet) {
+    const byId = new Map(data.wallets.map((w) => [String(w.id ?? w._id ?? ''), w]))
+    spentToday = Object.entries(data.spentByWallet).reduce((sum, [id, amount]) => {
+      const wallet = byId.get(id)
+      // Card spending still counts (the card bill is paid from cash), and so does a wallet that is
+      // no longer listed. A wallet you turned off, or savings, is not spending money.
+      const counts = !wallet || wallet.type === 'credit_card' || walletCounts(wallet, data.rules?.[id])
+      return counts ? sum + (Number(amount) || 0) : sum
+    }, 0)
+  }
 
   const bills: SafeToSpendInput['bills'] = []
   const incomes: SafeToSpendInput['incomes'] = []
@@ -176,7 +199,7 @@ export function safeToSpendInputs(data: {
     floor: data.floor,
     bills,
     incomes,
-    spentToday: data.spentToday,
+    spentToday,
     today,
     fallbackDays: Math.max(1, differenceInCalendarDays(endOfMonth(today), today)),
   }

@@ -243,14 +243,17 @@ export function QuickAddSheet({
       // "Hide amounts on open" means no money in a toast either.
       if (!safeInputs || !isToday || hideAmountsOnOpen) return null
       const rules = useSettingsStore.getState().safeToSpendWallets
+      const walletOf = (id: string) => wallets.find((w, i) => walletIdOf(w, i) === id)
       const counts = (id: string) => {
-        const wallet = wallets.find((w, i) => walletIdOf(w, i) === id)
+        const wallet = walletOf(id)
         return !!wallet && walletCounts(wallet, rules?.[id])
       }
+      const from = walletOf(walletId)
       const after = applyTransaction(safeInputs, {
         type,
         amount: type === 'income' ? amount : amount + fee,
         fromCash: counts(walletId),
+        fromExcluded: !!from && from.type !== 'credit_card' && !counts(walletId),
         toCash: type === 'transfer' ? counts(toWalletId) : undefined,
         affectsBalance: !keepBalance,
       })

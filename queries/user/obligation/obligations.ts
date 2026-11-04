@@ -16,6 +16,13 @@ import {
 
 const isSupabase = () => process.env.NEXT_PUBLIC_BACKEND === 'supabase';
 
+// Lending and repayments move wallet balances, so Home's safe to spend and money in/out refresh too.
+const invalidateHomeTotals = (queryClient: ReturnType<typeof useQueryClient>) => {
+  for (const key of ["wallet-total-balance", "transactions-quick-stats", "transactions-spent-today", "transaction-chart-data"]) {
+    queryClient.invalidateQueries({ queryKey: [key] });
+  }
+};
+
 // Create Obligation — disbursement transaction + optional installment
 // bills, all atomic: always the obligations_create RPC.
 const createObligation = async (data: CreateObligationData) => {
@@ -57,6 +64,7 @@ export const useCreateObligation = () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      invalidateHomeTotals(queryClient);
       queryClient.invalidateQueries({ queryKey: ["obligation-summary"] });
     },
     onError: (error) => {
@@ -147,6 +155,7 @@ export const useUpdateObligation = () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      invalidateHomeTotals(queryClient);
     },
     onError: (error) => {
       handleApiError(error);
@@ -175,6 +184,7 @@ export const useArchiveObligation = () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      invalidateHomeTotals(queryClient);
       queryClient.invalidateQueries({ queryKey: ["obligation-summary"] });
     },
     onError: (error) => {
@@ -212,8 +222,8 @@ export const useRecordObligationPayment = () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      invalidateHomeTotals(queryClient);
       queryClient.invalidateQueries({ queryKey: ["obligation-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
     onError: (error) => {
       handleApiError(error);
