@@ -2,17 +2,16 @@
 
 import { useMemo, useState } from 'react'
 import { IonContent, IonPage } from '@ionic/react'
-import { format, differenceInCalendarDays } from 'date-fns'
-import { Eye, EyeOff, Plus, Sparkles } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { EmptyState, PeacockMascot } from '@/components/peacock-mascot'
+import { EmptyState } from '@/components/peacock-mascot'
 import { ObligationCard } from '@/components/page/debts/obligation-card'
 import { ObligationSheet } from '@/components/page/debts/obligation-sheet'
 import { RecordPaymentSheet } from '@/components/page/debts/record-payment-sheet'
 import { useArchiveObligation, useListObligations, useObligationSummary } from '@/queries/user/obligation/obligations'
 import { useSettingsStore } from '@/store/settings-store'
+import { ManageHeader } from '@/components/page/manage-header'
 import { formatMoney } from '@/utils/formatter'
-import { Skeleton } from '@/components/ui/skeleton'
 import type { Obligation, ObligationDirection } from '@/types/obligation'
 
 type Tab = 'all' | ObligationDirection
@@ -60,105 +59,25 @@ export default function DebtsPage() {
   const summary = summaryResponse?.data as any
   const owe = Number(summary?.debt?.totalRemaining ?? 0)
   const owed = Number(summary?.lending?.totalRemaining ?? 0)
-  const net = Number(summary?.netPosition ?? owed - owe)
   const activeCount = Number(summary?.debt?.activeCount ?? 0) + Number(summary?.lending?.activeCount ?? 0)
   const money = (value: number) => formatMoney(value, currency, !showAmounts)
 
-  const note = useMemo(() => {
-    const dated = items
-      .filter((o) => o.direction === 'debt' && o.status !== 'settled' && o.dueDate)
-      .sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime())[0]
-    if (dated) {
-      const days = differenceInCalendarDays(new Date(dated.dueDate as string), new Date())
-      if (days < 0) return `${dated.name} is ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} overdue. Paying even part of it helps.`
-      return `Next up: ${dated.name}, due ${format(new Date(dated.dueDate as string), 'MMM d')}${days <= 7 ? ` (${days === 0 ? 'today' : `in ${days} day${days === 1 ? '' : 's'}`})` : ''}.`
-    }
-    if (activeCount === 0) return 'No debts or loans on record. Add one when you borrow or lend and I will keep track.'
-    return `You owe ${formatMoney(owe, currency, false)} and are owed ${formatMoney(owed, currency, false)}.`
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, owe, owed, activeCount, currency])
-
   const handleArchive = (obligation: Obligation) =>
     archive({ id: obligation.id }, { onSuccess: () => toast.success('Archived') })
-
-  const tiles = [
-    { label: 'You owe', value: owe },
-    { label: 'Owed to you', value: owed },
-  ]
 
   return (
     <IonPage>
       <IonContent className="bg-background text-foreground">
         <main className="mx-auto max-w-5xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Borrowed and lent</p>
-            <h1 className="mt-1 font-heading text-2xl font-semibold leading-tight text-foreground sm:text-3xl">Debts &amp; loans</h1>
-          </div>
-
-          <section className="mt-5">
-            <div className="relative z-10 mb-3 flex items-end">
-              <div className="relative min-w-0 max-w-2xl flex-1 rounded-[1.75rem] border border-border bg-card px-4 py-3.5 shadow-ios">
-                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Fico&apos;s take
-                </p>
-                {summaryLoading ? (
-                  <div className="mt-2 space-y-2" aria-label="Loading">
-                    <Skeleton className="h-3.5 w-full" />
-                    <Skeleton className="h-3.5 w-2/3" />
-                  </div>
-                ) : (
-                  <p className="mt-1.5 text-[15px] leading-relaxed text-foreground">{note}</p>
-                )}
-                <span aria-hidden="true" className="absolute -right-3.5 bottom-6 h-3.5 w-3.5 rounded-full border border-border bg-card shadow-sm sm:bottom-8" />
-                <span aria-hidden="true" className="absolute -right-[1.65rem] bottom-4 h-2 w-2 rounded-full border border-border bg-card shadow-sm sm:bottom-6" />
-              </div>
-              <PeacockMascot pose="advisor" className="-mb-10 ml-7 h-24 w-24 shrink-0 sm:h-28 sm:w-28" label="Fico, your financial advisor" />
-            </div>
-
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-[#004C99] px-5 pb-5 pt-9 text-white shadow-ios-lg">
-              <div className="relative">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-white/75">Net position</p>
-                    <button
-                      type="button"
-                      onClick={() => setShowAmounts((v) => !v)}
-                      aria-label={showAmounts ? 'Hide amounts' : 'Show amounts'}
-                      className="rounded-full p-1 text-white/75 hover:bg-white/15 hover:text-white"
-                    >
-                      {showAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSheet({ open: true, obligation: null, direction: tab === 'lending' ? 'lending' : 'debt' })}
-                    className="flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-primary shadow-sm hover:opacity-90"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </button>
-                </div>
-                {summaryLoading ? (
-                  <Skeleton className="mt-2 h-10 w-52 bg-white/20 sm:h-12" />
-                ) : (
-                  <p className="mt-1 font-heading text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">
-                    {net > 0 ? '+' : ''}
-                    {money(net)}
-                  </p>
-                )}
-                <p className="mt-1 text-xs text-white/75">What you are owed minus what you owe</p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {tiles.map((tile) => (
-                    <div key={tile.label} className="rounded-2xl bg-white/12 p-3">
-                      <p className="text-xs font-medium text-white/75">{tile.label}</p>
-                      <div className="mt-1 truncate text-base font-semibold tabular-nums sm:text-lg">{summaryLoading ? <Skeleton className="h-6 w-20 bg-white/20" /> : money(tile.value)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
+          <ManageHeader
+            eyebrow="Borrowed and lent"
+            title="Debts & loans"
+            loading={summaryLoading}
+            summary={activeCount > 0 ? `You owe ${money(owe)} · owed to you ${money(owed)}` : undefined}
+            showAmounts={showAmounts}
+            onToggleAmounts={() => setShowAmounts((v) => !v)}
+            onAdd={() => setSheet({ open: true, obligation: null, direction: tab === 'lending' ? 'lending' : 'debt' })}
+          />
 
           <div role="group" aria-label="Filter" className="mt-5 inline-flex rounded-full bg-secondary p-1">
             {TABS.map((option) => (

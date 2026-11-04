@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Plus, Scale } from 'lucide-react'
 import { IonContent, IonPage } from '@ionic/react'
-import { MoneyOverviewCard } from '@/components/page/wallet/money-overview-card'
+import { ManageHeader } from '@/components/page/manage-header'
 import { WalletCard } from '@/components/page/wallet/wallet-card'
 import { CreateWalletModal } from '@/components/page/wallet/create-wallet-modal'
 import { CreateTransactionModal } from '@/components/page/transaction/create-transaction-modal'
@@ -147,7 +147,6 @@ export function WalletsPage() {
   const cards = activeWallets.filter((wallet) => wallet.type === 'credit_card')
   const assets = activeWallets.filter((wallet) => wallet.type !== 'credit_card').reduce((sum, wallet) => sum + wallet.balance, 0)
   const owed = cards.reduce((sum, wallet) => sum + wallet.balance, 0)
-  const interestEarned = activeWallets.reduce((sum, wallet) => sum + (wallet.totalInterestEarned ?? 0), 0)
   // Keep each card's "payment" bill in step with what is currently owed on it.
   const cardKey = cards.map((card) => `${card.id}:${card.balance}:${card.dueDay ?? ''}`).join('|')
   useEffect(() => {
@@ -155,24 +154,7 @@ export function WalletsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardKey])
 
-  const hasSavings = activeWallets.some((wallet) => wallet.type === 'savings')
   const money = (value: number) => formatMoney(value, currency, !showAmounts)
-
-  const note = useMemo(() => {
-    if (activeWallets.length === 0) return 'Add your first wallet and I will keep track of every peso for you.'
-    const busiest = cards
-      .filter((card) => card.creditLimit && card.creditLimit > 0)
-      .map((card) => ({ card, pct: (card.balance / (card.creditLimit as number)) * 100 }))
-      .sort((a, b) => b.pct - a.pct)[0]
-    if (busiest && busiest.pct >= 70) {
-      return `Your ${busiest.card.name} card is ${Math.round(busiest.pct)}% used. Maybe go easy on it until the next statement.`
-    }
-    if (interestEarned > 0) {
-      return `Your savings have earned ${formatMoney(interestEarned, currency, false)} in interest so far. Nice work.`
-    }
-    return `You are holding ${formatMoney(assets, currency, false)} across ${activeWallets.length} wallet${activeWallets.length === 1 ? '' : 's'}.`
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallets, currency])
 
   const walletTypes: { value: string; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -225,39 +207,29 @@ export function WalletsPage() {
     <IonPage>
       <IonContent className="bg-background text-foreground">
         <main className="mx-auto max-w-7xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your accounts</p>
-              <h1 className="mt-1 font-heading text-2xl font-semibold leading-tight text-foreground sm:text-3xl">Money</h1>
-            </div>
-            {wallets.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowReconcile(true)}
-                aria-label="Check balances"
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-ios hover:border-primary/50"
-              >
-                <Scale className="h-4 w-4 text-primary" />
-                <span className="hidden sm:inline">Check balances</span>
-              </button>
-            )}
-          </div>
-
-          <div className="mt-5">
-            <MoneyOverviewCard
-              note={note}
-              loading={isLoading}
-              netWorth={money(assets - owed)}
-              assets={money(assets)}
-              owed={money(owed)}
-              interest={money(interestEarned)}
-              hasCards={cards.length > 0}
-              hasSavings={hasSavings}
-              showAmounts={showAmounts}
-              onToggleAmounts={() => setShowAmounts((v) => !v)}
-              onAdd={() => setShowCreateModal(true)}
-            />
-          </div>
+          <ManageHeader
+            eyebrow="Your accounts"
+            title="Money"
+            addLabel="New wallet"
+            loading={isLoading}
+            summary={activeWallets.length > 0 ? `Net worth ${money(assets - owed)}${cards.length > 0 ? ` · ${money(owed)} owed on cards` : ''}` : undefined}
+            showAmounts={showAmounts}
+            onToggleAmounts={() => setShowAmounts((v) => !v)}
+            onAdd={() => setShowCreateModal(true)}
+            actions={
+              wallets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowReconcile(true)}
+                  aria-label="Check balances"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-ios hover:border-primary/50"
+                >
+                  <Scale className="h-4 w-4 text-primary" />
+                  <span className="hidden sm:inline">Check balances</span>
+                </button>
+              )
+            }
+          />
 
           {/* Filters */}
           <div className="-mx-1 mt-5 flex items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filter wallets">
