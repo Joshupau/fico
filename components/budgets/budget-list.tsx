@@ -6,6 +6,7 @@ import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react'
 import BudgetModal from './budget-modal'
 import { useListBudgets, useUpdateBudget, useRolloverBudget, useBudgetsMonthSpent } from '@/queries/user/budget/budgets'
 import { BudgetCard } from '@/components/page/budget/budget-card'
+import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import { BudgetPeriod } from '@/types/budget'
@@ -95,6 +96,34 @@ export default function BudgetList({ month, groupId, ungroupedOf, title = 'Activ
 
   const { data: budgetResponse, isLoading, refetch } = useListBudgets({ page: '0', limit: '100' })
   const { mutate: rolloverBudget } = useRolloverBudget()
+  const { mutate: updateBudget, isPending: removing } = useUpdateBudget()
+  const [removingBudget, setRemovingBudget] = useState<BudgetViewModel | null>(null)
+  // Removing archives the budget: it stops renewing and leaves the list, and past months keep it.
+  const confirmRemove = () => {
+    if (!removingBudget) return
+    updateBudget(
+      { id: removingBudget.id, status: 'archived' },
+      {
+        onSuccess: () => {
+          toast.success('Budget removed')
+          setRemovingBudget(null)
+        },
+      }
+    )
+  }
+  const removeSheet = (
+    <ConfirmSheet
+      open={!!removingBudget}
+      onOpenChange={(next) => !next && setRemovingBudget(null)}
+      onConfirm={confirmRemove}
+      variant="destructive"
+      title="Remove this budget?"
+      description={removingBudget ? `${removingBudget.name} stops renewing and leaves your budgets. Your transactions stay as they are.` : undefined}
+      confirmLabel="Remove"
+      confirmingLabel="Removing..."
+      isConfirming={removing}
+    />
+  )
   const { currency, hideAmountsOnOpen } = useSettingsStore()
 
   const budgets = useMemo(() => {
@@ -153,6 +182,7 @@ export default function BudgetList({ month, groupId, ungroupedOf, title = 'Activ
                 {...b}
                 onEdit={() => setSelectedBudget(b)}
                 onRollover={() => handleRollover(b.id)}
+                onArchive={() => setRemovingBudget(b)}
                 monthSpent={b.period === 'yearly' ? monthSpent?.[b.id] : undefined}
                 monthLabel={monthLabel}
               />
@@ -166,6 +196,7 @@ export default function BudgetList({ month, groupId, ungroupedOf, title = 'Activ
           Add budget
         </button>
         <BudgetModal open={!!selectedBudget} onClose={() => setSelectedBudget(null)} budget={selectedBudget} />
+      {removeSheet}
       </div>
     )
   }
@@ -214,6 +245,7 @@ export default function BudgetList({ month, groupId, ungroupedOf, title = 'Activ
                 {...b} 
                 onEdit={() => setSelectedBudget(b)} 
                 onRollover={() => handleRollover(b.id)}
+                onArchive={() => setRemovingBudget(b)}
                 monthSpent={b.period === 'yearly' ? monthSpent?.[b.id] : undefined}
                 monthLabel={monthLabel}
               />
@@ -288,6 +320,7 @@ export default function BudgetList({ month, groupId, ungroupedOf, title = 'Activ
 
       <BudgetModal open={open} onClose={() => setOpen(false)} />
       <BudgetModal open={!!selectedBudget} onClose={() => setSelectedBudget(null)} budget={selectedBudget} />
+      {removeSheet}
     </div>
   )
 }

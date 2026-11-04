@@ -160,6 +160,8 @@ export function SyncDetailsSheet() {
         ? { icon: <AlertTriangle className="size-5" />, tone: 'bg-warning/15 text-warning', text: 'The server needs an update before changes can sync. They’re safe on this device.' }
         : details.dead > 0
           ? { icon: <AlertTriangle className="size-5" />, tone: 'bg-destructive/10 text-destructive', text: `${details.dead} change${details.dead === 1 ? '' : 's'} couldn’t sync. Retry, or discard to keep what the server has.` }
+          : details.missing.length > 0 && details.pending > 0
+            ? { icon: <AlertTriangle className="size-5" />, tone: 'bg-warning/15 text-warning', text: 'Some changes wait for a server update (the tables listed below). They’re safe on this device and sync once the server has them.' }
           : details.retryAt
             ? { icon: <RefreshCw className="size-5" />, tone: 'bg-warning/15 text-warning', text: `The server had trouble with a change. Trying again in ${formatDistanceToNowStrict(new Date(details.retryAt))}.` }
             : allClear
