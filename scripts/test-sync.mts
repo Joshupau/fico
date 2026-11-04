@@ -6,7 +6,7 @@ import { LOCAL_EXTRAS_STATEMENTS, LOCAL_PRELUDE_STATEMENTS, LOCAL_SCHEMA_STATEME
 import { loadCatalog, LocalEngine, type Db } from '../lib/local/engine'
 import { recordingBuilder } from '../lib/local/builder'
 import { LocalDatabase } from '../lib/local/database'
-import { SyncEngine, syncStatus } from '../lib/local/sync'
+import { MAX_ATTEMPTS, SyncEngine, syncStatus } from '../lib/local/sync'
 
 // sync.ts reads navigator.onLine to decide whether to try the network.
 const setOnline = (on: boolean) => Object.defineProperty(globalThis.navigator, 'onLine', { value: on, configurable: true })
@@ -267,6 +267,153 @@ check('duplicate replay ignored', again.data?.duplicate === true, again)
     b: await snapshot(serverDb),
   })
   sync5.stop()
+}
+
+// --- incremental pull, backoff and set-aside changes --------------------------------------------
+{
+  // Records every request the device makes, so a quiet sync can be shown to be small.
+  const log: Array<{ table: string; calls: string[] }> = []
+  let walletsDown = false
+  let replayError: { code: string; message: string; status: number } | null = null
+  let refreshes = 0
+  const broken = { data: null, error: { code: 'XX000', message: 'wallets: internal error', details: '', hint: '' }, count: null, status: 500, statusText: 'Internal Server Error' }
+  const watched = {
+    from: (t: string) =>
+      recordingBuilder([], (c) => {
+        log.push({ table: t, calls: c.map(([m]) => m) })
+        return t === 'wallets' && walletsDown ? Promise.resolve(broken) : server.execute('table', t, c)
+      }),
+    rpc: (n: string, args: object = {}) =>
+      recordingBuilder([['rpc-args', [args]]], (c) => {
+        const target = (args as { p_name?: string }).p_name
+        if (replayError && (target === 'transactions_create' || replayError.code === 'PGRST202' || replayError.code === 'PGRST301')) {
+          const { code, message, status } = replayError
+          return Promise.resolve({ data: null, error: { code, message, details: '', hint: '' }, count: null, status, statusText: 'Error' })
+        }
+        return server.execute('rpc', n, c)
+      }),
+    auth: { refreshSession: async () => (refreshes++, {}) },
+  } as unknown as SupabaseClient
+  syncStatus.dismissFailures()
+  const local7 = await LocalDatabase.open({ userId: UID, email: 'a@b.c', username: 'tester', factory: async () => new PGlite() })
+  const sync7 = new SyncEngine(local7, watched)
+  await sync7.hydrate()
+  const L7 = (t: string) => recordingBuilder([], (c) => local7.engine.execute('table', t, c)) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+  const LR7 = (n: string, a: object = {}) => recordingBuilder([['rpc-args', [a]]], (c) => local7.engine.execute('rpc', n, c)) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  // A sync with nothing new: per table, one incremental read plus a row count. No id lists, no fetch by id.
+  log.length = 0
+  await sync7.request(true)
+  const perTable = new Map<string, number>()
+  for (const r of log) perTable.set(r.table, (perTable.get(r.table) ?? 0) + 1)
+  check('a quiet sync makes at most two small requests per table', [...perTable.values()].every((n) => n <= 2) && !log.some((r) => r.calls.includes('in')), Object.fromEntries(perTable))
+  check('a quiet sync reads only rows changed since the last pull', log.filter((r) => r.calls.includes('gt')).length >= 10, log.map((r) => `${r.table}:${r.calls.join('.')}`))
+
+  // Changes elsewhere still arrive, and a delete is caught by the row count.
+  await S('categories').insert({ name: 'Incremental', type: 'expense' })
+  await sync7.request(true)
+  check('incremental pull brings new rows', (await local7.db.query(`select 1 from public.categories where name = 'Incremental'`)).rows.length === 1)
+  await serverDb.query(`delete from public.categories where name = 'Incremental'`)
+  await sync7.request(true)
+  check('incremental pull notices a delete', (await local7.db.query(`select 1 from public.categories where name = 'Incremental'`)).rows.length === 0)
+
+  // A row deleted and another added with an old stamp in the same window: the count still matches and
+  // the new row is older than the mark, so the incremental pull misses both. The full check finds them.
+  const gone = (await serverDb.query<{ id: string }>(`select id from public.categories where owner_id is not null limit 1`)).rows[0].id
+  await serverDb.exec(`set session_replication_role = replica;
+    delete from public.categories where id = '${gone}';
+    insert into public.categories (owner_id, name, type, updated_at) values ('${UID}', 'Backdated', 'expense', now() - interval '1 day');
+    set session_replication_role = origin`)
+  await sync7.request(true)
+  const inSync = async () =>
+    (await local7.db.query(`select 1 from public.categories where name = 'Backdated'`)).rows.length === 1 &&
+    (await local7.db.query(`select 1 from public.categories where id = $1`, [gone])).rows.length === 0
+  const missedFirst = !(await inSync())
+  await sync7.fullCheck()
+  check('the full check catches what the incremental pull missed', missedFirst && (await inSync()) && (await local7.meta('full_check_at')) !== null, { missedFirst })
+
+  // A change the server keeps failing on: retried with backoff, then set aside so the next one goes up.
+  const wal7 = (await local7.db.query<{ id: string }>(`select id from public.wallets limit 1`)).rows[0].id
+  replayError = { code: 'XX000', message: 'boom', status: 500 }
+  await LR7('transactions_create', { p_wallet_id: wal7, p_amount: 7, p_type: 'expense', p_description: 'always fails', p_date: new Date().toISOString() })
+  await L7('categories').insert({ name: 'After the stuck one', type: 'expense' })
+  await sync7.request(true)
+  const attempts1 = (await local7.db.query<{ attempts: number }>(`select attempts from public._sync_outbox order by seq limit 1`)).rows[0]?.attempts
+  check('a failing change is tried again later, not dropped', attempts1 === 1 && (await local7.pendingCount()) === 2 && syncStatus.get().retryAt !== null, { attempts1, retryAt: syncStatus.get().retryAt })
+  log.length = 0
+  await sync7.request()
+  check('during the backoff nothing is sent', log.length === 0, log.length)
+  for (let i = 1; i < MAX_ATTEMPTS; i++) await sync7.request(true)
+  const after7 = await sync7.details()
+  check('after too many tries it is set aside and the rest sync', after7.dead === 1 && after7.pending === 0 && after7.changes[0]?.status === 'dead' && after7.changes[0]?.lastError === 'boom', after7)
+  check('the change after it reached the server', (await serverDb.query(`select 1 from public.categories where name = 'After the stuck one'`)).rows.length === 1)
+  check('the user is told once', syncStatus.get().failures.length === 1 && syncStatus.get().dead === 1, syncStatus.get().failures)
+  check('a set-aside change is kept for sign-out', (await local7.unsentCount()) === 1)
+
+  // Retry once the server is fixed.
+  replayError = null
+  await sync7.retry()
+  check('Retry sends a set-aside change', (await sync7.details()).dead === 0 && (await serverDb.query(`select 1 from public.transactions where description = 'always fails'`)).rows.length === 1)
+
+  // Discard.
+  replayError = { code: '23514', message: 'refused', status: 400 }
+  await LR7('transactions_create', { p_wallet_id: wal7, p_amount: 8, p_type: 'expense', p_description: 'refused', p_date: new Date().toISOString() })
+  await sync7.request(true)
+  const refused = await sync7.details()
+  check('a refused change is set aside at once, not dropped', refused.dead === 1 && refused.changes[0]?.attempts === 1, refused)
+  await sync7.discard(refused.changes[0].seq)
+  check('Discard removes it', (await sync7.details()).dead === 0 && (await local7.unsentCount()) === 0)
+  replayError = null
+
+  // sync_replay missing on the server: hold everything, say so, don't count tries.
+  replayError = { code: 'PGRST202', message: 'Could not find the function public.sync_replay', status: 404 }
+  await LR7('transactions_create', { p_wallet_id: wal7, p_amount: 9, p_type: 'expense', p_description: 'needs migration', p_date: new Date().toISOString() })
+  for (let i = 0; i < MAX_ATTEMPTS + 2; i++) await sync7.request(true)
+  const old = await sync7.details()
+  check('a server without sync_replay holds the queue', old.pending === 1 && old.dead === 0 && old.serverNeedsUpdate && old.changes[0].attempts === 0, old)
+
+  // An expired session: refresh and wait, never count it against the change.
+  replayError = { code: 'PGRST301', message: 'JWT expired', status: 401 }
+  for (let i = 0; i < MAX_ATTEMPTS + 2; i++) await sync7.request(true)
+  const jwt = await sync7.details()
+  check('an expired session never sets a change aside', jwt.pending === 1 && jwt.dead === 0 && jwt.changes[0].attempts === 0 && refreshes > 0, { jwt, refreshes })
+  replayError = null
+  await sync7.request(true)
+  check('it goes up once the session is fine', (await local7.pendingCount()) === 0 && !syncStatus.get().serverNeedsUpdate)
+
+  // Going offline and back: the reconnect sync ignores any backoff.
+  setOnline(false)
+  await LR7('transactions_create', { p_wallet_id: wal7, p_amount: 3, p_type: 'expense', p_description: 'offline then online', p_date: new Date().toISOString() })
+  await sync7.request(true)
+  const heldOffline = await local7.pendingCount()
+  setOnline(true)
+  await sync7.request(true)
+  check('offline changes wait without counting tries, then go up', heldOffline === 1 && (await local7.pendingCount()) === 0)
+
+  // Per-table refresh: one table failing doesn't make the others fetch every row again.
+  await local7.setMeta('refresh_all', true)
+  walletsDown = true
+  log.length = 0
+  await sync7.request(true)
+  const fetchedById1 = new Set(log.filter((r) => r.calls.includes('in')).map((r) => r.table))
+  log.length = 0
+  await sync7.request(true)
+  const fetchedById2 = new Set(log.filter((r) => r.calls.includes('in')).map((r) => r.table))
+  const refreshing = await local7.meta<string[]>('refresh_tables')
+  check('a refresh downloads each table once, and only the failing one is left', fetchedById1.has('categories') && !fetchedById2.has('categories') && JSON.stringify(refreshing) === '["wallets"]', { fetchedById1: [...fetchedById1], fetchedById2: [...fetchedById2], refreshing })
+  walletsDown = false
+  await sync7.request(true)
+  check('the failing table refreshes once it works', JSON.stringify(await local7.meta('refresh_tables')) === '[]')
+  sync7.stop()
+
+  // Set-aside changes survive an app update that rebuilds the device copy.
+  const oldPg = new PGlite()
+  const before = await LocalDatabase.open({ userId: UID, email: 'a@b.c', username: 'tester', factory: async () => oldPg })
+  await before.db.query(`insert into public._sync_outbox (kind, payload, status, attempts, last_error) values ('rpc', '{"name":"x"}', 'dead', 8, 'boom')`)
+  const newPg = new PGlite()
+  const after = await LocalDatabase.open({ userId: UID, email: 'a@b.c', username: 'tester', factory: async (dir) => (dir === 'old-copy' ? oldPg : newPg), legacy: { list: async () => ['old-copy'], remove: async () => {} } })
+  const carried = (await after.db.query<{ status: string; attempts: number }>(`select status, attempts from public._sync_outbox`)).rows
+  check('set-aside changes carry across an update', carried.length === 1 && carried[0].status === 'dead' && carried[0].attempts === 8, carried)
 }
 
 sync.stop()
