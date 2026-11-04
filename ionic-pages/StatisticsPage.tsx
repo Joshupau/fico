@@ -8,6 +8,7 @@ import { useMemo } from 'react'
 import { useListWallets } from '@/queries/user/wallet/wallets'
 import { SpendingChart, PeriodSummaryCard } from '@/components/page/dashboard/spending-chart'
 import { CategoryDistributionCard } from '@/components/page/statistics/category-distribution-card'
+import { PlansOverview } from '@/components/page/statistics/plans-overview'
 import { useTopCategories, useQuickStats } from '@/queries/user/transaction/transaction'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
@@ -267,6 +268,8 @@ export default function StatisticsPage() {
               <PeriodSummaryCard period={period} offset={offset} walletId={walletId || undefined} />
             </div>
           </div>
+
+          <PlansOverview />
         </main>
       </IonContent>
     </IonPage>

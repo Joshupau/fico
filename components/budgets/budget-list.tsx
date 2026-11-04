@@ -169,7 +169,7 @@ export default function BudgetList({ month, groupId, title = 'Active Goals', bar
 
   if (bare) {
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {isLoading
           ? [0, 1].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl border border-border bg-card" />)
           : budgets.map((b) => (
@@ -186,7 +186,7 @@ export default function BudgetList({ month, groupId, title = 'Active Goals', bar
         <button
           type="button"
           onClick={openNew}
-          className="flex min-h-24 items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/40 p-4 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+          className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/40 p-4 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
         >
           <Plus className="h-4 w-4" />
           Add budget

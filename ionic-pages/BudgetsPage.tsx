@@ -1,111 +1,53 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import BudgetList from '@/components/budgets/budget-list'
 import { IonPage, IonContent } from '@ionic/react'
 import { BudgetsHeader } from '@/components/page/budget/budgets-header'
-import { BudgetOverview } from '@/components/page/budget/budget-overview'
 import BudgetModal from '@/components/budgets/budget-modal'
-import { useBudgetSummary, useBudgetPerformance, useListBudgets } from '@/queries/user/budget/budgets'
-import { useSettingsStore } from '@/store/settings-store'
-import { budgetOverlapsMonth, isSameMonth, startOfMonth } from '@/utils/budget-month'
-import { SavingsCard } from '@/components/page/budget/savings-card'
+import { startOfMonth } from '@/utils/budget-month'
 import { PlansSection } from '@/components/page/budget/plans/plans-section'
 import { useBudgetMonth } from '@/hooks/use-budget-month'
+import { useSettingsStore } from '@/store/settings-store'
+import { formatMoney } from '@/utils/formatter'
 
 
 export default function BudgetsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
-  const isCurrentMonth = isSameMonth(month, new Date())
-  const isPastMonth = month < startOfMonth(new Date())
   const budgetMonth = useBudgetMonth(month)
-  const monthLabel = month.toLocaleDateString('en-US', { month: 'long' })
   // Budgets live inside plans. Until the plans update reaches the account, the page is just budgets.
   const plansOn = !budgetMonth.plansUnavailable
   const [newPlanRequest, setNewPlanRequest] = useState(0)
+  const { currency, hideAmountsOnOpen } = useSettingsStore()
+  // One line of totals for the month; the full breakdown is on Statistics.
+  const spent = budgetMonth.planStatuses.reduce((sum, p) => sum + p.spent, 0)
+  const target = budgetMonth.planStatuses.reduce((sum, p) => sum + p.spendTarget, 0)
+  const headerSummary =
+    plansOn && target > 0
+      ? `${formatMoney(spent, currency, hideAmountsOnOpen)} spent of ${formatMoney(target, currency, hideAmountsOnOpen)}`
+      : undefined
   
-  const { data: summaryResponse, isLoading: summaryLoading } = useBudgetSummary()
-  const { data: performanceResponse, isLoading: performanceLoading } = useBudgetPerformance()
-  // Same params as BudgetList, so both read one cached list.
-  const { data: listResponse, isLoading: listLoading } = useListBudgets({ page: '0', limit: '100' })
-  const { currency } = useSettingsStore()
-
-  const summary = useMemo(() => {
-    // The server summary only covers budgets running today, so another month is totalled
-    // from the list rows that cover that month.
-    if (!isCurrentMonth) {
-      const rows: { amount?: number; spent?: number; startDate?: string; endDate?: string }[] =
-        listResponse?.data?.items ?? []
-      const inMonth = rows.filter((b) => budgetOverlapsMonth(b, month))
-      const totalBudgeted = inMonth.reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
-      const totalSpent = inMonth.reduce((sum, b) => sum + (Number(b.spent) || 0), 0)
-      const exceeded = inMonth.filter((b) => (Number(b.spent) || 0) >= (Number(b.amount) || 0)).length
-      return {
-        totalBudgeted,
-        totalSpent,
-        totalRemaining: totalBudgeted - totalSpent,
-        activeBudgets: inMonth.length - exceeded,
-        exceededBudgets: exceeded,
-        burnRate: totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0,
-        performanceMessage: inMonth.length === 0 ? 'No budgets for this month' : '',
-        currency,
-      }
-    }
-    const data = summaryResponse?.data
-    return {
-      totalBudgeted: data?.totalBudgeted || 0,
-      totalSpent: data?.totalSpent || 0,
-      totalRemaining: data?.totalRemaining || 0,
-      activeBudgets: data?.activeBudgets || 0,
-      exceededBudgets: data?.exceededBudgets || 0,
-      burnRate: performanceResponse?.data?.overallBurnRate || 0,
-      performanceMessage: performanceResponse?.data?.message || '',
-      currency,
-    }
-  }, [summaryResponse, performanceResponse, currency, isCurrentMonth, listResponse, month])
-
   return (
     <IonPage>
       <IonContent className="bg-background text-foreground transition-all duration-300">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-2">
+        <main className="mx-auto max-w-5xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
           <BudgetsHeader 
             onAddBudget={() => (plansOn ? setNewPlanRequest((n) => n + 1) : setIsModalOpen(true))}
             addLabel={plansOn ? 'New plan' : undefined}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            summary={headerSummary}
+            loading={budgetMonth.loading}
             month={month}
             onMonthChange={setMonth}
           />
           
-          <BudgetOverview 
-            totalBudgeted={summary.totalBudgeted}
-            totalSpent={summary.totalSpent}
-            totalRemaining={summary.totalRemaining}
-            activeBudgets={summary.activeBudgets}
-            exceededBudgets={summary.exceededBudgets}
-            currency={summary.currency}
-            burnRate={summary.burnRate}
-            message={summary.performanceMessage}
-            loading={isCurrentMonth ? summaryLoading || performanceLoading : listLoading}
-          />
-
-          <SavingsCard
-            summary={budgetMonth.summary}
-            monthLabel={monthLabel}
-            isPastMonth={isPastMonth}
-            hasSavingsWallets={budgetMonth.hasSavingsWallets}
-            loading={budgetMonth.loading}
-          />
-
           {plansOn ? <PlansSection data={budgetMonth} month={month} newPlanRequest={newPlanRequest} /> : <BudgetList month={month} />}
           
           <BudgetModal 
             open={isModalOpen} 
             onClose={() => setIsModalOpen(false)} 
           />
-        </div>
+        </main>
       </IonContent>
     </IonPage>
   )

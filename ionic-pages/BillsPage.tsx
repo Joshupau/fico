@@ -3,8 +3,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import { IonPage, IonContent } from '@ionic/react'
 import toast from 'react-hot-toast'
-import { BillsHeader } from '@/components/page/bills/bills-header'
-import { BillsOverview } from '@/components/page/bills/bills-overview'
+import { ManageHeader } from '@/components/page/manage-header'
+import { useSettingsStore } from '@/store/settings-store'
+import { formatMoney } from '@/utils/formatter'
 import { BillsFilters, BillsFilterState } from '@/components/page/bills/bills-filters'
 import { BillsList } from '@/components/page/bills/bills-list'
 import { BillModal } from '@/components/page/bills/bill-modal'
@@ -18,7 +19,6 @@ import {
   useArchiveBill,
   useUnarchiveBill,
   useOverdueBills,
-  useUpcomingBills,
 } from '@/queries/user/bill/bills'
 import { ListBillsParams, Bill } from '@/types/bill'
 import { extractItemsCount, extractPaginationMeta, normalizeBillsResponse, normalizeBillSummary } from '@/components/page/bills/bill-utils'
@@ -71,6 +71,7 @@ const flattenPages = (pages: unknown[] | undefined) => (pages ?? []).flatMap((pa
 const totalOf = (pages: unknown[] | undefined) => (pages?.length ? extractPaginationMeta(pages[0]).totalItems : 0)
 
 export default function BillsPage() {
+  const { currency, hideAmountsOnOpen } = useSettingsStore()
   const [filters, setFilters] = useState<BillsFilterState>(initialFilters)
   const [processingBillId, setProcessingBillId] = useState<string | null>(null)
 
@@ -93,7 +94,6 @@ export default function BillsPage() {
   const settled = useInfiniteBills({ ...baseParams, group: 'settled' }, showSettled)
 
   const { data: summaryResponse, isLoading: summaryLoading } = useBillSummary()
-  const { data: upcomingResponse, isLoading: upcomingLoading } = useUpcomingBills({ days: '7' })
   const { data: overdueResponse, isLoading: overdueLoading } = useOverdueBills()
 
   const { mutate: markPaid } = useMarkBillPaid()
@@ -140,7 +140,6 @@ export default function BillsPage() {
     }
   }, [allBills, summaryFromApi])
 
-  const upcomingCount = useMemo(() => extractItemsCount(upcomingResponse), [upcomingResponse])
   const overdueCount = useMemo(() => extractItemsCount(overdueResponse), [overdueResponse])
 
   const handleMarkPaid = (id: string) => {
@@ -233,21 +232,23 @@ export default function BillsPage() {
     <IonPage>
       <IonContent className="bg-background text-foreground">
         <main className="mx-auto max-w-7xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-          <BillsHeader
-            onCreate={() => {
+          <ManageHeader
+            eyebrow="What is coming up"
+            title="Bills & Income"
+            addLabel="New Entry"
+            loading={summaryLoading || overdueLoading}
+            summary={
+              summary.totalBills > 0
+                ? `${formatMoney(summary.unpaidAmount, currency, hideAmountsOnOpen)} still to pay${overdueCount > 0 ? ` · ${overdueCount} overdue` : ''}`
+                : undefined
+            }
+            onAdd={() => {
               setEditingBill(null)
               setBillModalOpen(true)
             }}
           />
 
           <div className="mt-5 space-y-6">
-            <BillsOverview
-              summary={summary}
-              upcomingCount={upcomingCount}
-              overdueCount={overdueCount}
-              isLoading={summaryLoading || upcomingLoading || overdueLoading}
-            />
-
             <BillsFilters
               filters={filters}
               onChange={setFilters}

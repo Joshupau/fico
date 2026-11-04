@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, Filter, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ManageHeader } from '@/components/page/manage-header'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { isSameMonth } from '@/utils/budget-month'
 
@@ -13,54 +12,27 @@ interface BudgetsHeaderProps {
   onAddBudget: () => void
   /** Label of the main button. */
   addLabel?: string
-  searchQuery: string
-  onSearchChange: (value: string) => void
+  /** One short line of totals under the title. */
+  summary?: string
+  loading?: boolean
   month: Date
   onMonthChange: (month: Date) => void
 }
 
-export function BudgetsHeader({
-  onAddBudget,
-  addLabel = 'Create New Budget',
-  searchQuery,
-  onSearchChange,
-  month,
-  onMonthChange,
-}: BudgetsHeaderProps) {
+export function BudgetsHeader({ onAddBudget, addLabel = 'New budget', summary, loading, month, onMonthChange }: BudgetsHeaderProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerYear, setPickerYear] = useState(month.getFullYear())
   const today = new Date()
+  const step = (by: number) => onMonthChange(new Date(month.getFullYear(), month.getMonth() + by, 1))
 
   return (
-    <div className="flex flex-col gap-4 mb-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            Budget Tracker
-          </h1>
-          <p className="text-muted-foreground mt-1">Plan, track, and stay within your financial goals.</p>
-        </div>
-        <Button onClick={onAddBudget} className="flex items-center gap-2 h-11 px-5 rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
-          <Plus className="w-5 h-5" />
-          {addLabel}
-        </Button>
-      </div>
+    <div className="mb-6 space-y-4">
+      <ManageHeader eyebrow="Spending limits" title="Budgets" summary={summary} loading={loading} onAdd={onAddBudget} addLabel={addLabel} />
 
-      <div className="flex flex-col sm:flex-row items-center gap-3">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Find a budget..."
-            className="pl-10 h-11 bg-card border-border/50 focus:border-primary/50 transition-all rounded-xl"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="flex-1 sm:flex-none h-11 gap-2 rounded-xl border-border/50 bg-card hover:bg-secondary/50">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            Category
-          </Button>
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-2 py-1.5">
+        <button type="button" onClick={() => step(-1)} aria-label="Previous month" className="rounded-full p-2 text-foreground transition-colors hover:bg-secondary">
+          <ChevronLeft className="h-5 w-5" />
+        </button>
           <Popover
             open={pickerOpen}
             onOpenChange={(open) => {
@@ -69,12 +41,12 @@ export function BudgetsHeader({
             }}
           >
             <PopoverTrigger asChild>
-              <Button variant="outline" className="flex-1 sm:flex-none h-11 gap-2 rounded-xl border-border/50 bg-card hover:bg-secondary/50">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
+              <button type="button" className="flex min-w-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
                 {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </Button>
+              </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 rounded-2xl p-4">
+            <PopoverContent align="center" className="w-72 rounded-2xl p-4">
               <div className="mb-3 flex items-center justify-between">
                 <button
                   type="button"
@@ -134,7 +106,9 @@ export function BudgetsHeader({
               )}
             </PopoverContent>
           </Popover>
-        </div>
+        <button type="button" onClick={() => step(1)} aria-label="Next month" className="rounded-full p-2 text-foreground transition-colors hover:bg-secondary">
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
     </div>
   )

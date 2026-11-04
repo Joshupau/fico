@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { FolderKanban, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
+import { FolderKanban, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import BudgetList from '@/components/budgets/budget-list'
@@ -74,17 +74,6 @@ export function PlansSection({ data, month, newPlanRequest = 0 }: { data: Budget
 
   return (
     <section className="mb-8 space-y-6">
-      <div className="flex items-center justify-between rounded-2xl border border-border/50 bg-card/40 p-2">
-        <div className="ml-2 flex items-center gap-4">
-          <h2 className="text-xl font-bold text-foreground">Plans</h2>
-          <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">{plans.length} TOTAL</div>
-        </div>
-        <Button variant="ghost" onClick={() => setSheet({ open: true, plan: null })} className="h-9 gap-1.5 rounded-xl text-sm font-semibold">
-          <Plus className="h-4 w-4" />
-          New plan
-        </Button>
-      </div>
-
       {!data.plansLoading && !data.loading && (
         <UnplannedBudgets lines={everydayLines} plans={plans} onNewPlan={() => setSheet({ open: true, plan: null })} />
       )}
@@ -216,18 +205,18 @@ function PlanBlock({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-border/50 bg-secondary/40 p-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Spent</p>
-              <p className="mt-1 break-words text-lg font-bold text-foreground">{money(spent)}</p>
-              <p className="text-xs text-muted-foreground">of {money(spendTarget)}</p>
-            </div>
-            <div className="rounded-xl border border-border/50 bg-secondary/40 p-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Can save</p>
-              <p className={`mt-1 break-words text-lg font-bold ${canSave < 0 ? 'text-destructive' : 'text-success'}`}>{money(canSave)}</p>
-              <p className="text-xs text-muted-foreground">{saveTarget > 0 ? `saved ${money(saved)} of ${money(saveTarget)}` : 'after spending groups'}</p>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Spent <span className="font-semibold tabular-nums text-foreground">{money(spent)}</span> of {money(spendTarget)} ·{' '}
+            {saveTarget > 0 ? (
+              <>
+                saved <span className="font-semibold tabular-nums text-foreground">{money(saved)}</span> of {money(saveTarget)}
+              </>
+            ) : (
+              <>
+                can save <span className={`font-semibold tabular-nums ${canSave < 0 ? 'text-destructive' : 'text-success'}`}>{money(canSave)}</span>
+              </>
+            )}
+          </p>
         </div>
       </div>
 

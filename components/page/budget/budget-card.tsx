@@ -1,9 +1,8 @@
 'use client'
 
-import { MoreVertical, Trash2, Edit2, RotateCcw, AlertTriangle, CheckCircle2, MoreHorizontal } from 'lucide-react'
+import { Trash2, Edit2, RotateCcw, AlertTriangle, MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 
@@ -58,74 +57,58 @@ export function BudgetCard({
     return 'bg-success'
   }
 
-  const getStatusIcon = () => {
-    if (isOverBudget) return <AlertTriangle className="w-4 h-4 text-destructive" />
-    if (isNearThreshold) return <AlertTriangle className="w-4 h-4 text-warning" />
-    return <CheckCircle2 className="w-4 h-4 text-success" />
-  }
-
   return (
-    <div className="group relative bg-card border border-border rounded-2xl p-5 shadow-ios hover:shadow-ios-lg transition-all duration-300">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold"
-            style={{ backgroundColor: categories[0]?.color || '#6366f1' }}
-          >
-            {name.charAt(0)}
-          </div>
-          <div>
-            <h3 className="font-bold text-lg text-foreground leading-none">{name}</h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">{period}</span>
-              {categories.slice(0, 2).map((category) => (
-                <Badge key={category.id} variant="outline" className="text-[9px] h-4 px-1.5 opacity-70">
-                  {category.name}
-                </Badge>
-              ))}
-              {categories.length > 2 && (
-                <Badge variant="outline" className="text-[9px] h-4 px-1.5 opacity-70">
-                  +{categories.length - 2}
-                </Badge>
-              )}
-            </div>
-          </div>
+    <div className="group relative rounded-2xl border border-border bg-card p-4 shadow-ios">
+      <div className="flex items-center gap-3">
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base font-bold text-white"
+          style={{ backgroundColor: categories[0]?.color || '#6366f1' }}
+        >
+          {name.charAt(0)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-semibold leading-tight text-foreground">{name}</h3>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {categories.length > 0 ? categories.map((c) => c.name).join(', ') : period}
+            {period === 'yearly' ? ' · yearly' : ''}
+          </p>
         </div>
 
-        <div className="relative">
+        <div className="relative shrink-0">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setShowMenu(!showMenu)}
+            aria-label={`Options for ${name}`}
             className="h-8 w-8 rounded-full hover:bg-secondary"
           >
-            <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
+            <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
           </Button>
 
           {showMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-xl py-2 z-50 animate-in fade-in zoom-in duration-200">
+              <div className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-border bg-card py-2 shadow-xl animate-in fade-in zoom-in duration-200">
                 <button
                   onClick={() => { onEdit?.(id); setShowMenu(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-secondary flex items-center gap-3 transition-colors"
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-secondary"
                 >
-                  <Edit2 className="w-4 h-4" />
-                  Edit Goal
+                  <Edit2 className="h-4 w-4" />
+                  Edit budget
                 </button>
                 <button
                   onClick={() => { onRollover?.(id); setShowMenu(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-secondary flex items-center gap-3 transition-colors"
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-secondary"
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <RotateCcw className="h-4 w-4" />
                   Rollover
                 </button>
                 <hr className="my-1 border-border/50" />
                 <button
                   onClick={() => { onArchive?.(id); setShowMenu(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-secondary flex items-center gap-3 transition-colors"
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-secondary"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-4 w-4" />
                   Remove Budget
                 </button>
               </div>
@@ -134,44 +117,18 @@ export function BudgetCard({
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex justify-between items-baseline">
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground/80 font-medium">{period === 'yearly' ? 'SPENT THIS YEAR' : 'SPENT'}</p>
-            <p className={`text-2xl font-black ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
-               {formatValue(spent)}
-            </p>
-            {monthSpent !== undefined && (
-              <p className="text-xs font-medium text-muted-foreground">In {monthLabel}: {formatValue(monthSpent)}</p>
-            )}
-          </div>
-          <div className="text-right space-y-1">
-            <p className="text-xs text-muted-foreground/80 font-medium uppercase">{isOverBudget ? 'Exceeded By' : 'Remaining'}</p>
-            <p className={`text-xl font-bold ${isOverBudget ? 'text-destructive' : 'text-success'}`}>
-               {formatValue(Math.abs(remaining))}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-            <div className="h-2.5 w-full bg-secondary rounded-full overflow-hidden">
-                <div 
-                    className={`h-full transition-all duration-700 rounded-full ${getProgressColor()}`}
-                    style={{ width: `${Math.min(percentageUsed, 100)}%` }}
-                />
-            </div>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                   {getStatusIcon()}
-                   <span className="text-[11px] font-bold text-muted-foreground uppercase">
-                     {percentageUsed.toFixed(0)}% Utilized
-                   </span>
-                </div>
-                <span className="text-[11px] font-bold text-muted-foreground uppercase">
-                  Limit: {formatValue(amount)}
-                </span>
-            </div>
-        </div>
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
+        <div className={`h-full rounded-full transition-all duration-700 ${getProgressColor()}`} style={{ width: `${Math.min(percentageUsed, 100)}%` }} />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-2 text-xs">
+        <span className="tabular-nums text-muted-foreground">
+          <span className={`font-semibold ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>{formatValue(spent)}</span> of {formatValue(amount)}
+          {monthSpent !== undefined ? ` · ${monthLabel}: ${formatValue(monthSpent)}` : ''}
+        </span>
+        <span className={`flex shrink-0 items-center gap-1 font-medium tabular-nums ${isOverBudget ? 'text-destructive' : isNearThreshold ? 'text-warning' : 'text-success'}`}>
+          {(isOverBudget || isNearThreshold) && <AlertTriangle className="h-3.5 w-3.5" />}
+          {isOverBudget ? `${formatValue(Math.abs(remaining))} over` : `${formatValue(remaining)} left`}
+        </span>
       </div>
     </div>
   )
