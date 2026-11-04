@@ -10,13 +10,9 @@ import { useBudgetSummary, useBudgetPerformance, useListBudgets } from '@/querie
 import { useSettingsStore } from '@/store/settings-store'
 import { budgetOverlapsMonth, isSameMonth, startOfMonth } from '@/utils/budget-month'
 import { SavingsCard } from '@/components/page/budget/savings-card'
-import { PlansView } from '@/components/page/budget/plans/plans-view'
+import { PlansSection } from '@/components/page/budget/plans/plans-section'
 import { useBudgetMonth } from '@/hooks/use-budget-month'
 
-const VIEWS = [
-  { value: 'budgets', label: 'Budgets' },
-  { value: 'plans', label: 'Plans' },
-] as const
 
 export default function BudgetsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -24,9 +20,10 @@ export default function BudgetsPage() {
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const isCurrentMonth = isSameMonth(month, new Date())
   const isPastMonth = month < startOfMonth(new Date())
-  const [view, setView] = useState<'budgets' | 'plans'>('budgets')
   const budgetMonth = useBudgetMonth(month)
   const monthLabel = month.toLocaleDateString('en-US', { month: 'long' })
+  const groupIds = useMemo(() => new Set(budgetMonth.plans.flatMap((p) => p.groups.map((g) => g.id))), [budgetMonth.plans])
+  const hasPlans = !budgetMonth.plansUnavailable && budgetMonth.plans.length > 0
   
   const { data: summaryResponse, isLoading: summaryLoading } = useBudgetSummary()
   const { data: performanceResponse, isLoading: performanceLoading } = useBudgetPerformance()
@@ -80,24 +77,6 @@ export default function BudgetsPage() {
             onMonthChange={setMonth}
           />
           
-          <div role="group" aria-label="View" className="mb-6 inline-flex rounded-full bg-secondary p-1">
-            {VIEWS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={view === option.value}
-                onClick={() => setView(option.value)}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${view === option.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          {view === 'plans' ? (
-            <PlansView data={budgetMonth} month={month} />
-          ) : (
-          <>
           <BudgetOverview 
             totalBudgeted={summary.totalBudgeted}
             totalSpent={summary.totalSpent}
@@ -118,8 +97,12 @@ export default function BudgetsPage() {
             loading={budgetMonth.loading}
           />
 
-          <BudgetList month={month} />
-          </>
+          <PlansSection data={budgetMonth} month={month} />
+
+          {hasPlans ? (
+            <BudgetList month={month} ungroupedOf={groupIds} title="Everyday budgets" />
+          ) : (
+            <BudgetList month={month} />
           )}
           
           <BudgetModal 
