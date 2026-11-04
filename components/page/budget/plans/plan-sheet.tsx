@@ -1,19 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, Trash2 } from 'lucide-react'
+import { Check, Plus, Trash2 } from 'lucide-react'
 import { chipClass, Field, FormSheet, fieldClass, labelClass, MoneyField, scrollRowClass } from '@/components/ui/form-sheet'
-import { useSavePlan } from '@/queries/user/budget-plan/budget-plans'
+import { newId, useSavePlan } from '@/queries/user/budget-plan/budget-plans'
+import { useListCategories } from '@/queries/user/category/categories'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
-import { groupTarget, PLAN_TEMPLATES } from '@/utils/budget-plans'
+import { groupTarget, PLAN_TEMPLATES, type MonthBudgetLine } from '@/utils/budget-plans'
 import { GROUP_COLORS, GROUP_ICONS } from './group-icon'
-import type { BudgetPlan, PlanGroupKind } from '@/types/budget-plan'
+import type { BudgetPlan, PlanGroupBudget, PlanGroupKind } from '@/types/budget-plan'
 
 type DraftGroup = {
   key: string
-  id?: string
+  id: string
+  isNew: boolean
+  /** Spending groups: the categories its budget covers. */
+  categoryIds: string[]
+  /** The group's budget this month, when it has one. */
+  budgetId: string | null
   name: string
   kind: PlanGroupKind
   mode: 'percent' | 'amount'
@@ -26,6 +32,22 @@ type DraftGroup = {
 let draftSeq = 0
 const draftKey = () => `g${++draftSeq}`
 
+type Category = { id: string; name: string; color?: string }
+
+// First guess at which categories go in a template's group. The user changes them before saving.
+const GUESS: Record<string, RegExp> = {
+  Needs: /rent|grocer|bill|utilit|electric|water|internet|load|transport|commut|fare|fuel|gas|health|medic|pharm|insur|tuition|school|house|home/i,
+  Living: /rent|grocer|bill|utilit|electric|water|internet|load|transport|commut|fare|fuel|gas|health|medic|pharm|insur|tuition|school|house|home|food/i,
+  Wants: /dining|restaurant|coffee|cafe|shop|entertain|movie|game|travel|subscri|hobby|beauty|cloth|gift/i,
+  'Debts & giving': /debt|loan|giv|donat|charit|tithe/i,
+}
+
+/** The budget that belongs to a group: its monthly budget named like the group, or its only one. */
+export function groupBudget(lines: MonthBudgetLine[], groupId: string, groupName: string): MonthBudgetLine | null {
+  const own = lines.filter((l) => l.groupId === groupId)
+  return own.find((l) => l.name.trim().toLowerCase() === groupName.trim().toLowerCase()) ?? (own.length === 1 ? own[0] : null)
+}
+
 interface PlanSheetProps {
   open: boolean
   onClose: () => void
@@ -37,9 +59,15 @@ interface PlanSheetProps {
   wallets: { id: string; name: string; type: string }[]
   nextSortOrder?: number
   onSaved?: (planId: string) => void
+  /** This month's budgets, to find each group's budget. */
+  lines: MonthBudgetLine[]
 }
 
-export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortOrder = 0, onSaved }: PlanSheetProps) {
+export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortOrder = 0, onSaved, lines }: PlanSheetProps) {
+  const { data: categoriesResponse } = useListCategories({ type: 'expense' })
+  const categories: Category[] = (Array.isArray(categoriesResponse?.data) ? categoriesResponse.data : categoriesResponse?.data?.items ?? []).map(
+    (c: { id?: string; _id?: string; name: string; color?: string }) => ({ id: String(c.id ?? c._id), name: c.name, color: c.color })
+  )
   const { currency } = useSettingsStore()
   const { mutate: save, isPending } = useSavePlan()
   const isEdit = !!plan
@@ -49,9 +77,17 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
   const [income, setIncome] = useState('')
   const [groups, setGroups] = useState<DraftGroup[]>([])
 
-  const fromTemplate = (key: string): DraftGroup[] =>
-    (PLAN_TEMPLATES.find((t) => t.key === key)?.groups ?? []).map((g) => ({
+  const fromTemplate = (key: string): DraftGroup[] => {
+    const taken = new Set<string>()
+    return (PLAN_TEMPLATES.find((t) => t.key === key)?.groups ?? []).map((g) => {
+      const guess = g.kind === 'spend' && GUESS[g.name] ? categories.filter((c) => !taken.has(c.id) && GUESS[g.name].test(c.name)).map((c) => c.id) : []
+      guess.forEach((id) => taken.add(id))
+      return {
       key: draftKey(),
+      id: newId(),
+      isNew: true,
+      categoryIds: guess,
+      budgetId: null,
       name: g.name,
       kind: g.kind,
       mode: 'percent',
@@ -59,7 +95,9 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
       icon: g.icon,
       color: g.color,
       walletIds: [],
-    }))
+      }
+    })
+  }
 
   useEffect(() => {
     if (!open) return
@@ -69,9 +107,14 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
       setGroups(
         [...plan.groups]
           .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((g) => ({
+          .map((g) => {
+            const budget = g.kind === 'spend' ? groupBudget(lines, g.id, g.name) : null
+            return {
             key: draftKey(),
             id: g.id,
+            isNew: false,
+            categoryIds: budget?.categoryIds ?? [],
+            budgetId: budget?.id ?? null,
             name: g.name,
             kind: g.kind,
             mode: g.percent !== null ? 'percent' : 'amount',
@@ -79,7 +122,8 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
             icon: g.icon,
             color: g.color,
             walletIds: g.walletIds,
-          }))
+            }
+          })
       )
     } else {
       setTemplate('50-30-20')
@@ -89,6 +133,19 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, plan])
+
+  // Categories can arrive after the sheet opened: guess the template's categories once they do.
+  const guessed = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      guessed.current = false
+      return
+    }
+    if (plan || guessed.current || categories.length === 0) return
+    guessed.current = true
+    setGroups((list) => (list.every((g) => g.categoryIds.length === 0) ? fromTemplate(template) : list))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, plan, categories.length])
 
   const pickTemplate = (key: string) => {
     setTemplate(key)
@@ -101,7 +158,20 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
   const addGroup = () =>
     setGroups((list) => [
       ...list,
-      { key: draftKey(), name: '', kind: 'spend', mode: 'percent', value: '', icon: null, color: GROUP_COLORS[list.length % GROUP_COLORS.length], walletIds: [] },
+      {
+        key: draftKey(),
+        id: newId(),
+        isNew: true,
+        categoryIds: [],
+        budgetId: null,
+        name: '',
+        kind: 'spend',
+        mode: 'percent',
+        value: '',
+        icon: null,
+        color: GROUP_COLORS[list.length % GROUP_COLORS.length],
+        walletIds: [],
+      },
     ])
 
   const planIncome = income.trim() === '' ? null : Number(income) || 0
@@ -117,6 +187,20 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
     if (!name.trim()) return void toast.error('Give the plan a name')
     if (groups.some((g) => !g.name.trim())) return void toast.error('Every group needs a name')
     if (groups.some((g) => g.mode === 'percent' && (Number(g.value) || 0) > 100)) return void toast.error('A group can be at most 100%')
+    const targetOf = (g: DraftGroup) =>
+      groupTarget({ percent: g.mode === 'percent' ? Number(g.value) || 0 : null, amount: g.mode === 'amount' ? Number(g.value) || 0 : null }, effectiveIncome)
+    const spend = groups.filter((g) => g.kind === 'spend')
+    const noCategories = spend.find((g) => g.categoryIds.length === 0)
+    if (noCategories) return void toast.error(`Pick the categories for ${noCategories.name}`)
+    const noAmount = spend.find((g) => targetOf(g) <= 0)
+    if (noAmount) return void toast.error(effectiveIncome <= 0 ? 'Enter the monthly income this plan splits' : `Give ${noAmount.name} an amount`)
+    const budgets: PlanGroupBudget[] = spend.map((g) => ({
+      groupId: g.id,
+      budgetId: g.budgetId,
+      name: g.name.trim(),
+      amount: Math.round(targetOf(g) * 100) / 100,
+      categoryIds: g.categoryIds,
+    }))
     save(
       {
         id: plan?.id,
@@ -125,8 +209,10 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
         color: plan?.color ?? null,
         sortOrder: nextSortOrder,
         existingGroupIds: plan?.groups.map((g) => g.id) ?? [],
+        budgets,
         groups: groups.map((g) => ({
           id: g.id,
+          isNew: g.isNew,
           name: g.name.trim(),
           kind: g.kind,
           percent: g.mode === 'percent' ? Number(g.value) || 0 : null,
@@ -237,6 +323,37 @@ export function PlanSheet({ open, onClose, plan, monthIncome, wallets, nextSortO
                   </span>
                 )}
               </div>
+
+              {g.kind === 'spend' && (
+                <div>
+                  <p className="mb-1.5 text-xs text-muted-foreground">
+                    Categories. Fico makes this group&apos;s monthly budget from them{g.budgetId ? ' (it already has one, which gets updated)' : ''}.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((c) => {
+                      const selected = g.categoryIds.includes(c.id)
+                      const other = groups.find((x) => x.key !== g.key && x.kind === 'spend' && x.categoryIds.includes(c.id))
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          aria-pressed={selected}
+                          disabled={!!other}
+                          title={other ? `In ${other.name || 'another group'}` : undefined}
+                          onClick={() => patch(g.key, { categoryIds: selected ? g.categoryIds.filter((id) => id !== c.id) : [...g.categoryIds, c.id] })}
+                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-35 ${
+                            selected ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-foreground'
+                          }`}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color || '#8E8E93' }} />
+                          {c.name}
+                          {selected && <Check className="h-3 w-3" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className={scrollRowClass} role="group" aria-label="Icon">
                 {GROUP_ICONS.map(({ key, icon: Icon }) => (

@@ -28,8 +28,9 @@ export type BudgetPlan = {
 };
 
 export type SavePlanGroupData = {
-  /** Set for a group that already exists. */
-  id?: string;
+  id: string;
+  /** True for a group made in this save (its id was chosen on the device). */
+  isNew?: boolean;
   name: string;
   kind: PlanGroupKind;
   percent: number | null;
@@ -45,4 +46,14 @@ export type SavePlanData = {
   income: number | null;
   color: string | null;
   groups: SavePlanGroupData[];
+};
+
+/** The budget a spending group gets: made with the plan, kept in step with the group's target. */
+export type PlanGroupBudget = {
+  groupId: string;
+  /** The group's existing budget this month, to update. Null makes a new one. */
+  budgetId: string | null;
+  name: string;
+  amount: number;
+  categoryIds: string[];
 };
