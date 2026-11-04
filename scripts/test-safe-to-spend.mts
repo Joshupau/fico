@@ -134,5 +134,23 @@ check('a savings wallet can be switched on', savingsOn.cashBalance === 100, savi
 const belowMin = safeToSpendInputs({ today, wallets: [{ id: 'bdo', type: 'bank', balance: 1500 }], rules: { bdo: { min: 2000 } }, openBills: [] })
 check('below its minimum a wallet gives nothing, not less than nothing', belowMin.cashBalance === 0, belowMin)
 
+// Turning a wallet off drops its spending today too, not only its balance.
+const spentWallets = [
+  { id: 'gcash', type: 'ewallet', balance: 339.82 },
+  { id: 'cash', type: 'cash', balance: 1470 },
+  { id: 'card', type: 'credit_card', balance: 0 },
+  { id: 'ef', type: 'savings', balance: 10000 },
+]
+const byWallet = { gcash: 780, cash: 40, card: 100, ef: 50, gone: 10 }
+const allOn = safeToSpendInputs({ today, wallets: spentWallets, openBills: [], spentToday: 980, spentByWallet: byWallet })
+check('spending from savings is left out', allOn.spentToday === 930, allOn.spentToday)
+const gcashOff = safeToSpendInputs({ today, wallets: spentWallets, rules: { gcash: { include: false } }, openBills: [], spentToday: 980, spentByWallet: byWallet })
+check('wallet switched off drops its spending; card and unknown wallets still count', gcashOff.spentToday === 150, gcashOff.spentToday)
+check('wallet switched off drops its balance', gcashOff.cashBalance === 1470, gcashOff.cashBalance)
+const noBreakdown = safeToSpendInputs({ today, wallets: spentWallets, openBills: [], spentToday: 980 })
+check('without a per-wallet breakdown the total is used', noBreakdown.spentToday === 980, noBreakdown.spentToday)
+const offExpense = applyTransaction(base, { type: 'expense', amount: 500, fromCash: false, fromExcluded: true })
+check('spending from a switched-off wallet changes nothing', offExpense.cashBalance === base.cashBalance && offExpense.spentToday === 0, offExpense)
+
 console.log(`${passes} passed, ${failures} failed`)
 if (failures) process.exit(1)

@@ -24,11 +24,14 @@ export function useSafeToSpendInputs(): { inputs: SafeToSpendInput | null; loadi
 
   const wallets = useMemo(() => asList(walletsResponse?.data), [walletsResponse])
   const spentToday = Number((spentResponse?.data as any)?.totalSpent) || 0
+  // Per-wallet spending, so turning a wallet off drops what was spent from it too. Older servers
+  // don't send it, and then the total is used as is.
+  const spentByWallet = (spentResponse?.data as any)?.byWallet as Record<string, number> | undefined
 
   const inputs = useMemo(() => {
     if (!supported || billsError || !walletsResponse || !openBills) return null
-    return safeToSpendInputs({ wallets, openBills, planned: planned ?? [], rules, spentToday, floor })
-  }, [supported, billsError, walletsResponse, openBills, planned, rules, wallets, spentToday, floor])
+    return safeToSpendInputs({ wallets, openBills, planned: planned ?? [], rules, spentToday, spentByWallet, floor })
+  }, [supported, billsError, walletsResponse, openBills, planned, rules, wallets, spentToday, spentByWallet, floor])
 
   return { inputs, loading: supported && (walletsLoading || billsLoading || spentLoading || plannedLoading), wallets }
 }
