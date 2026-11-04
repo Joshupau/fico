@@ -236,7 +236,7 @@ export async function teardown(wipe: boolean): Promise<void> {
     return
   }
   runtime.sync.stop()
-  const pending = await runtime.local.pendingCount().catch(() => 0)
+  const pending = await runtime.local.unsentCount().catch(() => 0)
   if (wipe && pending === 0) await runtime.local.destroy()
   else await runtime.local.close().catch(() => {})
   runtime.release()
@@ -298,5 +298,25 @@ export function withOfflineSupport(client: SupabaseClient): SupabaseClient {
 /** Runs a sync now (e.g. from a "Sync now" button). */
 export async function syncNow(): Promise<void> {
   const runtime = await getRuntime()
-  await runtime?.sync.request()
+  await runtime?.sync.request(true)
+}
+
+/** What Settings > Sync details shows, or null when this device isn't keeping an offline copy. */
+export async function syncDetails() {
+  const runtime = await getRuntime()
+  return runtime ? runtime.sync.details() : null
+}
+
+/** Puts changes that couldn't sync back in the queue: all of them, or the one with this seq. */
+export async function retrySetAside(seq?: number): Promise<void> {
+  await (await getRuntime())?.sync.retry(seq)
+}
+
+export async function discardSetAside(seq: number): Promise<void> {
+  await (await getRuntime())?.sync.discard(seq)
+}
+
+/** Compares every table with the server now (catches rows deleted on another device). */
+export async function fullSyncCheck(): Promise<void> {
+  await (await getRuntime())?.sync.fullCheck()
 }

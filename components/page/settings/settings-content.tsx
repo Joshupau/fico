@@ -2,9 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { format } from 'date-fns'
+import { format, formatDistanceToNowStrict } from 'date-fns'
 import toast from 'react-hot-toast'
-import { Bell, CalendarDays, Check, ChevronRight, Coins, Download, EyeOff, House, LayoutList, LogOut, Moon, RotateCcw, Trash2, UserRound } from 'lucide-react'
+import { Bell, CalendarDays, Check, ChevronRight, Coins, Download, EyeOff, House, LayoutList, LogOut, Moon, RefreshCw, RotateCcw, Trash2, UserRound } from 'lucide-react'
 import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { DEFAULT_SETTINGS, useSettingsStore } from '@/store/settings-store'
@@ -16,6 +16,8 @@ import { formatMoney } from '@/utils/formatter'
 import { cn } from '@/lib/utils'
 import { saveFile } from '@/utils/export-data'
 import { currentPushSubscription, disablePush, enablePush, pushSupport, sendTestPush, type PushSupport } from '@/utils/push'
+import { useSyncStatus } from '@/lib/local/status'
+import { useSyncSheet } from '@/components/page/settings/sync-debug'
 import type { CurrencyCode, DateFormat, LandingPage } from '@/types/settings'
 
 const currencyOptions: { value: CurrencyCode; label: string; symbol: string }[] = [
@@ -265,6 +267,31 @@ function BillReminderRow() {
   )
 }
 
+function SyncDetailsRow() {
+  const { active, online, pending, dead, serverNeedsUpdate, lastSyncedAt } = useSyncStatus()
+  const hint = !active
+    ? 'Working straight from the server.'
+    : dead > 0
+      ? `${dead} change${dead === 1 ? '' : 's'} couldn’t sync. Tap to retry or discard.`
+      : serverNeedsUpdate
+        ? 'The server needs an update. Changes are saved here.'
+        : pending > 0
+          ? `${pending} change${pending === 1 ? '' : 's'} waiting${online ? '' : ' (offline)'}.`
+          : lastSyncedAt
+            ? `Up to date. Synced ${formatDistanceToNowStrict(new Date(lastSyncedAt))} ago.`
+            : 'Up to date.'
+  return (
+    <Row
+      icon={<RefreshCw className="size-[18px]" />}
+      tone={dead > 0 || serverNeedsUpdate ? 'warning' : 'primary'}
+      label="Sync details"
+      hint={hint}
+      badge={dead > 0 ? `${dead} stuck` : undefined}
+      onClick={() => useSyncSheet.getState().setOpen(true)}
+    />
+  )
+}
+
 export function SettingsPageContent() {
   const settings = useSettingsStore()
   const { isDarkMode, setDarkMode } = useThemeStore()
@@ -426,6 +453,7 @@ export function SettingsPageContent() {
       </Group>
 
       <Group title="This device" footer="Your settings are saved on this device and apply right away.">
+        <SyncDetailsRow />
         <Row icon={<Download className="size-[18px]" />} tone="neutral" label="Save a settings backup" hint="Downloads a small file you can keep." onClick={downloadBackup} />
         <Row
           icon={<RotateCcw className="size-[18px]" />}

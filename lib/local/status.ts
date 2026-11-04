@@ -23,6 +23,12 @@ export interface SyncStatus {
   pending: number
   /** The last sync ended with changes still waiting (server unreachable, or a table it doesn't have yet). */
   stalled: boolean
+  /** Changes the server kept failing on, set aside so the rest can sync. Kept until retried or discarded. */
+  dead: number
+  /** The server lacks sync_replay (its migrations are behind): changes wait until it is updated. */
+  serverNeedsUpdate: boolean
+  /** While changes are failing, when the next try is due. */
+  retryAt: number | null
   failures: SyncFailure[]
   lastSyncedAt: number | null
   /** Set when the server rejected the sync for a reason other than being offline. */
@@ -38,6 +44,9 @@ const initial: SyncStatus = {
   syncing: false,
   pending: 0,
   stalled: false,
+  dead: 0,
+  serverNeedsUpdate: false,
+  retryAt: null,
   failures: [],
   lastSyncedAt: null,
   error: null,

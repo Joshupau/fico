@@ -34,6 +34,9 @@ interface OutboxRow {
   payload: unknown
   ids: unknown
   created_at: string
+  status: string
+  attempts: number
+  last_error: string | null
 }
 
 const dataDirFor = (userId: string, version = LOCAL_SCHEMA_VERSION) => `fico-${userId}-${version}`
@@ -165,7 +168,9 @@ export class LocalDatabase {
           const oldDb = await create(old)
           try {
             const rows = await oldDb.query<OutboxRow>(
-              `select op_id, kind, payload, ids, created_at from public._sync_outbox where status = 'pending' order by seq`
+              // Changes that couldn't sync ('dead') come across too: they are kept until the user retries or discards them.
+              `select op_id, kind, payload, ids, created_at, status, attempts, last_error from public._sync_outbox
+                where status in ('pending', 'dead') order by seq`
             )
             outbox.push(...rows.rows)
             const data = await readCarried(oldDb).catch(() => null)
@@ -180,13 +185,11 @@ export class LocalDatabase {
       await install(db, params)
       if (carried) await writeCarried(db, carried)
       for (const row of outbox) {
-        await db.query(`insert into public._sync_outbox (op_id, kind, payload, ids, created_at) values ($1, $2, $3::jsonb, $4::jsonb, $5)`, [
-          row.op_id,
-          row.kind,
-          JSON.stringify(row.payload),
-          JSON.stringify(row.ids),
-          row.created_at,
-        ])
+        await db.query(
+          `insert into public._sync_outbox (op_id, kind, payload, ids, created_at, status, attempts, last_error)
+           values ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7, $8)`,
+          [row.op_id, row.kind, JSON.stringify(row.payload), JSON.stringify(row.ids), row.created_at, row.status ?? 'pending', row.attempts ?? 0, row.last_error ?? null]
+        )
       }
       // Only now that everything is in the new copy: the app closing before this point loses nothing.
       for (const old of olds) await legacy.remove(old)
@@ -219,6 +222,12 @@ export class LocalDatabase {
     return res.rows[0]?.n ?? 0
   }
 
+  /** Changes not on the server yet, including ones that couldn't sync: signing out must not erase them. */
+  async unsentCount(): Promise<number> {
+    const res = await this.db.query<{ n: number }>(`select count(*)::int as n from public._sync_outbox where status in ('pending', 'dead')`)
+    return res.rows[0]?.n ?? 0
+  }
+
   async close(): Promise<void> {
     await this.db.close()
   }
@@ -235,7 +244,7 @@ export class LocalDatabase {
     let pending = 0
     try {
       const res = await db.query<{ n: number }>(
-        `select case when to_regclass('public._sync_outbox') is null then 0 else (select count(*)::int from public._sync_outbox where status = 'pending') end as n`
+        `select case when to_regclass('public._sync_outbox') is null then 0 else (select count(*)::int from public._sync_outbox where status in ('pending', 'dead')) end as n`
       )
       pending = res.rows[0]?.n ?? 0
     } finally {
