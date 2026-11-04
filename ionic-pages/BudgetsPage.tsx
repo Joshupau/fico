@@ -22,8 +22,9 @@ export default function BudgetsPage() {
   const isPastMonth = month < startOfMonth(new Date())
   const budgetMonth = useBudgetMonth(month)
   const monthLabel = month.toLocaleDateString('en-US', { month: 'long' })
-  const groupIds = useMemo(() => new Set(budgetMonth.plans.flatMap((p) => p.groups.map((g) => g.id))), [budgetMonth.plans])
-  const hasPlans = !budgetMonth.plansUnavailable && budgetMonth.plans.length > 0
+  // Budgets live inside plans. Until the plans update reaches the account, the page is just budgets.
+  const plansOn = !budgetMonth.plansUnavailable
+  const [newPlanRequest, setNewPlanRequest] = useState(0)
   
   const { data: summaryResponse, isLoading: summaryLoading } = useBudgetSummary()
   const { data: performanceResponse, isLoading: performanceLoading } = useBudgetPerformance()
@@ -70,7 +71,8 @@ export default function BudgetsPage() {
       <IonContent className="bg-background text-foreground transition-all duration-300">
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-2">
           <BudgetsHeader 
-            onAddBudget={() => setIsModalOpen(true)}
+            onAddBudget={() => (plansOn ? setNewPlanRequest((n) => n + 1) : setIsModalOpen(true))}
+            addLabel={plansOn ? 'New plan' : undefined}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             month={month}
@@ -97,13 +99,7 @@ export default function BudgetsPage() {
             loading={budgetMonth.loading}
           />
 
-          <PlansSection data={budgetMonth} month={month} />
-
-          {hasPlans ? (
-            <BudgetList month={month} ungroupedOf={groupIds} title="Everyday budgets" />
-          ) : (
-            <BudgetList month={month} />
-          )}
+          {plansOn ? <PlansSection data={budgetMonth} month={month} newPlanRequest={newPlanRequest} /> : <BudgetList month={month} />}
           
           <BudgetModal 
             open={isModalOpen} 

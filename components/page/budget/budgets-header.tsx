@@ -11,6 +11,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 interface BudgetsHeaderProps {
   onAddBudget: () => void
+  /** Label of the main button. */
+  addLabel?: string
   searchQuery: string
   onSearchChange: (value: string) => void
   month: Date
@@ -19,6 +21,7 @@ interface BudgetsHeaderProps {
 
 export function BudgetsHeader({
   onAddBudget,
+  addLabel = 'Create New Budget',
   searchQuery,
   onSearchChange,
   month,
@@ -39,7 +42,7 @@ export function BudgetsHeader({
         </div>
         <Button onClick={onAddBudget} className="flex items-center gap-2 h-11 px-5 rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
           <Plus className="w-5 h-5" />
-          Create New Budget
+          {addLabel}
         </Button>
       </div>
 

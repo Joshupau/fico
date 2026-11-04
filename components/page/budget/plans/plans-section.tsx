@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { FolderKanban, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import type { BudgetPlan, BudgetPlanGroup } from '@/types/budget-plan'
 import { GroupBadge } from './group-icon'
 import { PlanSheet } from './plan-sheet'
 import { GroupBudgetsSheet } from './group-budgets-sheet'
+import { UnplannedBudgets } from './unplanned-budgets'
 
 type BudgetMonth = ReturnType<typeof useBudgetMonth>
 
@@ -34,10 +35,10 @@ function Bar({ pct, color, over, className = 'h-2.5' }: { pct: number; color: st
 
 /**
  * Plans on the Budgets page. Each plan splits an income into groups, and each spending group holds
- * its budgets (the same budget cards as the rest of the page). Budgets outside a plan are listed
- * below the plans by the page, as everyday budgets.
+ * its budgets (the same budget cards as the rest of the page). Every budget lives in a plan: budgets
+ * that aren't in one (made before plans) are listed so they can be moved in or removed.
  */
-export function PlansSection({ data, month }: { data: BudgetMonth; month: Date }) {
+export function PlansSection({ data, month, newPlanRequest = 0 }: { data: BudgetMonth; month: Date; newPlanRequest?: number }) {
   const { currency, hideAmountsOnOpen } = useSettingsStore()
   const money = (v: number) => formatMoney(v, currency, hideAmountsOnOpen)
   const monthLabel = month.toLocaleDateString('en-US', { month: 'long' })
@@ -48,10 +49,15 @@ export function PlansSection({ data, month }: { data: BudgetMonth; month: Date }
   const [deleting, setDeleting] = useState<BudgetPlan | null>(null)
   const { mutate: deletePlan, isPending: removing } = useDeletePlan()
 
+  // The page's "New plan" button.
+  useEffect(() => {
+    if (newPlanRequest > 0) setSheet({ open: true, plan: null })
+  }, [newPlanRequest])
+
   // Before the plans update reaches the account, the page is just budgets, as it was.
   if (data.plansUnavailable) return null
 
-  const { planStatuses, lines, plans, summary } = data
+  const { planStatuses, lines, plans, summary, everydayLines } = data
 
   const confirmDelete = () => {
     if (!deleting) return
@@ -59,7 +65,7 @@ export function PlansSection({ data, month }: { data: BudgetMonth; month: Date }
       { id: deleting.id },
       {
         onSuccess: () => {
-          toast.success('Plan deleted. Its budgets are now everyday budgets.')
+          toast.success('Plan deleted')
           setDeleting(null)
         },
       }
@@ -79,6 +85,10 @@ export function PlansSection({ data, month }: { data: BudgetMonth; month: Date }
         </Button>
       </div>
 
+      {!data.plansLoading && !data.loading && (
+        <UnplannedBudgets lines={everydayLines} plans={plans} onNewPlan={() => setSheet({ open: true, plan: null })} />
+      )}
+
       {data.plansLoading ? (
         <div className="h-48 animate-pulse rounded-2xl border border-border bg-card" />
       ) : planStatuses.length === 0 ? (
@@ -88,8 +98,10 @@ export function PlansSection({ data, month }: { data: BudgetMonth; month: Date }
           className="flex w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border bg-card/40 p-6 text-center text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
         >
           <FolderKanban className="h-6 w-6" />
-          <span className="font-bold">Group your budgets into a plan</span>
-          <span className="max-w-sm text-xs">Try 50/30/20: half of your income on needs, 30% on wants and 20% saved.</span>
+          <span className="font-bold">Start with a plan</span>
+          <span className="max-w-sm text-xs">
+            Your budgets live inside a plan. Try 50/30/20: half of your income on needs, 30% on wants and 20% saved. Saving the plan makes its budgets.
+          </span>
         </button>
       ) : (
         planStatuses.map((status) => (
@@ -134,7 +146,7 @@ export function PlansSection({ data, month }: { data: BudgetMonth; month: Date }
         onConfirm={confirmDelete}
         variant="destructive"
         title="Delete this plan?"
-        description={deleting ? `${deleting.name} and its groups will be deleted. The budgets in it stay, as everyday budgets.` : undefined}
+        description={deleting ? `${deleting.name}, its groups and their budgets will be deleted. Your transactions and past months stay as they are.` : undefined}
         confirmLabel="Delete"
         confirmingLabel="Deleting..."
         isConfirming={removing}
