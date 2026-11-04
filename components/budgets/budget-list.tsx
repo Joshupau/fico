@@ -74,7 +74,21 @@ const normalizeBudget = (budget: BudgetApiItem, index: number): BudgetViewModel 
   }
 }
 
-export default function BudgetList({ month }: { month: Date }) {
+interface BudgetListProps {
+  month: Date
+  /** Only the budgets in this plan group. */
+  groupId?: string
+  /** Only budgets that are not in a plan group (ids of the groups that exist). */
+  ungroupedOf?: Set<string>
+  /** Title of the section header. */
+  title?: string
+  /** Inside a plan group: no header, a smaller empty state and an "Add budget" tile. */
+  bare?: boolean
+  /** Opens the sheet for a new budget (in this group, when bare). */
+  onAdd?: () => void
+}
+
+export default function BudgetList({ month, groupId, ungroupedOf, title = 'Active Goals', bare = false, onAdd }: BudgetListProps) {
   const [open, setOpen] = useState(false)
   const [selectedBudget, setSelectedBudget] = useState<BudgetViewModel | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -100,8 +114,14 @@ export default function BudgetList({ month }: { month: Date }) {
 
     return items
       .filter((budget) => budgetOverlapsMonth(budget, month))
+      .filter((budget) => {
+        const g = budget.groupId ?? null
+        if (groupId) return g === groupId
+        if (ungroupedOf) return !g || !ungroupedOf.has(g)
+        return true
+      })
       .map((budget, budgetIndex) => normalizeBudget(budget, budgetIndex))
-  }, [budgetResponse, month])
+  }, [budgetResponse, month, groupId, ungroupedOf])
 
   // Yearly budgets also show what was spent in the month being viewed.
   const hasYearly = budgets.some((b) => b.period === 'yearly')
@@ -120,11 +140,41 @@ export default function BudgetList({ month }: { month: Date }) {
     })
   }
 
+  const openNew = () => (onAdd ? onAdd() : setOpen(true))
+
+  if (bare) {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {isLoading
+          ? [0, 1].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl border border-border bg-card" />)
+          : budgets.map((b) => (
+              <BudgetCard
+                key={b.id}
+                {...b}
+                onEdit={() => setSelectedBudget(b)}
+                onRollover={() => handleRollover(b.id)}
+                monthSpent={b.period === 'yearly' ? monthSpent?.[b.id] : undefined}
+                monthLabel={monthLabel}
+              />
+            ))}
+        <button
+          type="button"
+          onClick={openNew}
+          className="flex min-h-24 items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/40 p-4 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+        >
+          <Plus className="h-4 w-4" />
+          Add budget
+        </button>
+        <BudgetModal open={!!selectedBudget} onClose={() => setSelectedBudget(null)} budget={selectedBudget} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-card/40 border border-border/50 p-2 rounded-2xl">
         <div className="flex items-center gap-4 ml-2">
-            <h2 className="text-xl font-bold text-foreground">Active Goals</h2>
+            <h2 className="text-xl font-bold text-foreground">{title}</h2>
             <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                 {budgets.length} TOTAL
             </div>
@@ -210,6 +260,15 @@ export default function BudgetList({ month }: { month: Date }) {
             )
           ))}
         </div>
+      ) : ungroupedOf ? (
+        <button
+          type="button"
+          onClick={openNew}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/40 p-6 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+        >
+          <Plus className="h-4 w-4" />
+          Budgets that aren&apos;t in a plan show here. Add one
+        </button>
       ) : (
         <div className="flex flex-col items-center justify-center bg-card/40 border border-dashed border-border rounded-[2.5rem] py-20 px-6 text-center">
           <div className="p-6 bg-primary/5 rounded-full mb-6">
@@ -220,7 +279,7 @@ export default function BudgetList({ month }: { month: Date }) {
             Take control of your finances by setting limits for your spending categories. 
             We'll help you stay on track!
           </p>
-          <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold shadow-lg shadow-primary/20" onClick={() => setOpen(true)}>
+          <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold shadow-lg shadow-primary/20" onClick={openNew}>
             <Plus className="w-5 h-5 mr-3" />
             Create Your First Goal
           </Button>
