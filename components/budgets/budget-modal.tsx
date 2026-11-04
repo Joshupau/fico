@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useListPlans, useSetBudgetGroup } from '@/queries/user/budget-plan/budget-plans'
 import { useCreateBudget, useListBudgets, useBudgetSummary, useUpdateBudget } from '@/queries/user/budget/budgets'
 import { useListCategories } from '@/queries/user/category/categories'
 import { useSettingsStore } from '@/store/settings-store'
@@ -45,9 +46,25 @@ type BudgetSeed = {
   categoryIds?: string[]
   period?: BudgetPeriod
   alertThreshold?: number
+  groupId?: string | null
 }
 
-export default function BudgetModal({ open, onClose, budget }: { open: boolean; onClose: () => void; budget?: BudgetSeed | null }) {
+export default function BudgetModal({
+  open,
+  onClose,
+  budget,
+  defaultGroupId = null,
+}: {
+  open: boolean
+  onClose: () => void
+  budget?: BudgetSeed | null
+  /** New budgets: the plan group to put it in. */
+  defaultGroupId?: string | null
+}) {
+  const { data: plans } = useListPlans()
+  const { mutate: setBudgetGroup } = useSetBudgetGroup()
+  const [groupId, setGroupId] = React.useState<string | null>(null)
+  const groupOptions = (plans ?? []).flatMap((plan) => plan.groups.map((g) => ({ id: g.id, label: `${plan.name} · ${g.name}`, kind: g.kind })))
   const { refetch: refetchBudgets } = useListBudgets()
   const { refetch: refetchSummary } = useBudgetSummary()
   const { mutate: createBudget, isPending } = useCreateBudget()
@@ -76,6 +93,7 @@ export default function BudgetModal({ open, onClose, budget }: { open: boolean; 
 
   useEffect(() => {
     if (!open) return
+    setGroupId(budget ? budget.groupId ?? null : defaultGroupId)
 
     if (budget) {
       form.reset({
@@ -95,7 +113,7 @@ export default function BudgetModal({ open, onClose, budget }: { open: boolean; 
       period: 'monthly',
       alertThreshold: 80,
     })
-  }, [open, budget, form])
+  }, [open, budget, form, defaultGroupId])
 
   const onSubmit = (data: BudgetFormValues) => {
     // Calculate startDate/endDate as the current calendar period (not a
@@ -134,7 +152,7 @@ export default function BudgetModal({ open, onClose, budget }: { open: boolean; 
 
     if (isEdit && budget) {
       updateBudget(
-        { id: budget.id, ...payload },
+        { id: budget.id, ...payload, ...(groupOptions.length || budget.groupId ? { groupId } : {}) },
         {
           onSuccess: () => {
             toast.success('Budget updated successfully')
@@ -151,7 +169,9 @@ export default function BudgetModal({ open, onClose, budget }: { open: boolean; 
     }
 
     createBudget(payload, {
-      onSuccess: () => {
+      onSuccess: (result: any) => {
+        const newId = result?.data?.id ?? result?.data?._id
+        if (groupId && newId) setBudgetGroup({ budgetIds: [String(newId)], groupId })
         toast.success('Budget created successfully')
         refetchBudgets()
         refetchSummary()
@@ -271,6 +291,32 @@ export default function BudgetModal({ open, onClose, budget }: { open: boolean; 
               <p className="text-[10px] font-bold text-destructive uppercase">{form.formState.errors.categoryIds.message}</p>
             )}
           </div>
+
+          {groupOptions.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Plan group</label>
+              <p className="text-xs text-muted-foreground">Optional. Its spending counts toward that group of your plan.</p>
+              <div className="flex flex-wrap gap-2">
+                {[{ id: null as string | null, label: 'No plan', kind: 'spend' as const }, ...groupOptions.filter((g) => g.kind === 'spend' || g.id === groupId)].map((g) => {
+                  const selected = groupId === g.id
+                  return (
+                    <button
+                      key={g.id ?? 'none'}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setGroupId(g.id)}
+                      className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition-colors ${
+                        selected ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-secondary/30 text-foreground'
+                      }`}
+                    >
+                      {g.label}
+                      {selected && <Check className="h-3.5 w-3.5" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex justify-between items-center">

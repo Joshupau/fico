@@ -110,6 +110,7 @@ const updateBudget = async (data: UpdateBudgetData) => {
         end_date: rest.endDate,
         alert_threshold: rest.alertThreshold,
         status: rest.status,
+        ...(rest.groupId !== undefined ? { group_id: rest.groupId } : {}),
       })
       .eq('id', id);
     if (error) throw error;

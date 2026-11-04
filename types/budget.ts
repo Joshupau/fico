@@ -24,6 +24,8 @@ export type UpdateBudgetData = {
   endDate?: string;
   alertThreshold?: number;
   status?: BudgetStatus;
+  /** Plan group the budget belongs to; null takes it out of any plan. Left out: unchanged. */
+  groupId?: string | null;
 };
 
 export type ListBudgetsParams = {
