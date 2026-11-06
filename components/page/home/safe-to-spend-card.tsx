@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { format, parseISO } from 'date-fns'
+import { differenceInCalendarDays, format, parseISO, startOfDay } from 'date-fns'
 import { Pencil } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSettingsStore } from '@/store/settings-store'
@@ -9,6 +9,64 @@ import { walletCounts, type SafeToSpend } from '@/utils/safe-to-spend'
 import { SafeToSpendWalletsSheet } from '@/components/page/home/safe-to-spend-wallets-sheet'
 
 const RING = 2 * Math.PI * 42
+const SHOWN_BILLS = 3
+
+/**
+ * The bills (and planned expenses) due before payday, which are already taken out of "Until payday",
+ * so you can see what that money is set aside for. With none due, it names the next one after payday.
+ */
+function BillsBefore({ result, money, payday }: { result: SafeToSpend; money: (n: number) => string; payday: Date | null }) {
+  const today = startOfDay(new Date())
+  const until = payday ? 'payday' : 'month end'
+  const next = result.nextBill
+  const nextLine = next && (
+    <>
+      {result.billsDue.length ? 'Next after ' + until : 'Next'}: <span className="text-foreground">{next.name || 'Bill'}</span>{' '}
+      <span className="whitespace-nowrap">{money(Math.round(next.amount))} on {format(parseISO(next.dueDate), 'MMM d')}</span>
+    </>
+  )
+
+  if (!result.billsDue.length) {
+    return (
+      <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+        No bills due before {until}.{nextLine && <> {nextLine}</>}
+      </p>
+    )
+  }
+
+  const shown = result.billsDue.slice(0, SHOWN_BILLS)
+  const more = result.billsDue.length - shown.length
+  return (
+    <div className="mt-3 border-t border-border pt-3 text-sm">
+      <div className="flex justify-between gap-2">
+        <span className="text-muted-foreground">Bills before {until}</span>
+        <span className="font-semibold tabular-nums text-foreground">{money(Math.round(result.billsBefore))}</span>
+      </div>
+      <ul className="mt-1.5 space-y-1">
+        {shown.map((bill, i) => {
+          const due = parseISO(bill.dueDate)
+          const overdue = differenceInCalendarDays(due, today) < 0
+          return (
+            <li key={`${bill.dueDate}-${i}`} className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate text-foreground">
+                {bill.name || 'Bill'}
+                <span className={overdue ? 'text-destructive' : 'text-muted-foreground'}>
+                  {' · '}
+                  {overdue ? 'overdue' : format(due, 'MMM d')}
+                </span>
+              </span>
+              <span className="shrink-0 tabular-nums text-foreground">{money(Math.round(bill.amount))}</span>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        {more > 0 && <>+{more} more · </>}
+        Already taken out of until {until}.{nextLine && <> {nextLine}</>}
+      </p>
+    </div>
+  )
+}
 
 /** Today's allowance as a ring that empties as you spend, with payday and the money kept aside. */
 export function SafeToSpendBody({
@@ -93,14 +151,10 @@ export function SafeToSpendBody({
               <span className="font-normal text-muted-foreground"> · {result.days}d</span>
             </dd>
           </div>
-          {result.billsBefore > 0 && (
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Due before then</dt>
-              <dd className="font-semibold tabular-nums text-foreground">{money(result.billsBefore)}</dd>
-            </div>
-          )}
         </dl>
       </div>
+
+      <BillsBefore result={result} money={money} payday={payday} />
 
       {result.short && (
         <p className="mt-3 rounded-2xl bg-destructive/10 p-2.5 text-sm font-medium text-destructive">

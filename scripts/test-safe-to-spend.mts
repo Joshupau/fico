@@ -152,5 +152,29 @@ check('without a per-wallet breakdown the total is used', noBreakdown.spentToday
 const offExpense = applyTransaction(base, { type: 'expense', amount: 500, fromCash: false, fromExcluded: true })
 check('spending from a switched-off wallet changes nothing', offExpense.cashBalance === base.cashBalance && offExpense.spentToday === 0, offExpense)
 
+// The card lists the bills behind "Until payday", and the next one after it.
+const listed = safeToSpend({
+  ...base,
+  bills: [
+    { dueDate: '2026-11-20', amount: 3000, name: 'Rent' },
+    { dueDate: '2026-11-10', amount: 1000, name: 'Globe' },
+    { dueDate: '2026-10-30', amount: 450, name: 'Meralco' },
+    { dueDate: '2026-11-14', amount: 5000, name: 'Card' },
+    { dueDate: '2026-11-11', amount: 0, name: 'Paid off' },
+  ],
+})
+check('bills due listed soonest first, overdue leads', listed.billsDue.map((b) => b.name).join() === 'Meralco,Globe', listed.billsDue)
+check('listed bills add up to billsBefore', listed.billsBefore === 1450, listed.billsBefore)
+check('next bill is the one due on payday', listed.nextBill?.name === 'Card', listed.nextBill)
+const noneBefore = safeToSpend({ ...base, bills: [{ dueDate: '2026-11-20', amount: 3000, name: 'Rent' }] })
+check('no bills before payday', noneBefore.billsDue.length === 0 && noneBefore.nextBill?.name === 'Rent', noneBefore)
+const named = safeToSpendInputs({
+  today,
+  wallets: [],
+  openBills: [{ id: 'b', type: 'bill', name: 'Globe', amount: 999, dueDate: '2026-11-10', isRecurring: false, paymentStatus: 'unpaid' }],
+  planned: [{ type: 'expense', date: '2026-11-12', amountHigh: 1500, name: 'Birthday gift' }],
+})
+check('bill and planned names carried', named.bills.map((b) => b.name).join() === 'Globe,Birthday gift', named.bills)
+
 console.log(`${passes} passed, ${failures} failed`)
 if (failures) process.exit(1)
