@@ -19,6 +19,7 @@ import { coinLabel, formatCoinQuantity, priceAsOf } from '@/utils/crypto-prices'
 import type { Investment } from '@/types/investment'
 import { resolveOrder, useHomeWidgets, type WidgetId } from '@/store/home-widgets-store'
 import { CustomizeWidgetsSheet } from '@/components/page/home/customize-widgets-sheet'
+import { PaydayCard } from '@/components/page/home/payday-card'
 import { getCategoryTotal, normalizeCategoryData } from '@/components/page/statistics/statistics-utils'
 import { formatMoney } from '@/utils/formatter'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -465,6 +466,8 @@ export default function DashboardPage() {
                   ))}
                 </nav>
             </div>
+
+            {backendHasBills && <PaydayCard money={money} safe={safeResult} />}
 
             <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:items-start">
               {visibleWidgets.map((id) => (

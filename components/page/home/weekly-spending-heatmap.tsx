@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { addDays, format, isAfter, isSameDay, startOfDay, startOfWeek, subWeeks } from 'date-fns'
+import { Share2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { WeeklyRecapSheet } from '@/components/page/home/weekly-recap-sheet'
+import { weeklyRecap, type RecapSpend } from '@/utils/retention'
 import { useListTransactions } from '@/queries/user/transaction/transaction'
 import { useListWallets } from '@/queries/user/wallet/wallets'
 import { useSettingsStore } from '@/store/settings-store'
@@ -34,18 +37,23 @@ export function WeeklySpendingHeatmap({ money }: { money: (n: number) => string 
     limit: '1000',
   })
 
-  const totals = useMemo(() => {
+  const [recapOpen, setRecapOpen] = useState(false)
+  const { totals, spends } = useMemo(() => {
     const byId = new Map(asList(walletsResponse?.data).map((w: any) => [String(w._id ?? w.id ?? ''), w]))
     const map = new Map<string, number>()
+    const list: RecapSpend[] = []
     for (const t of asList(txResponse?.data)) {
       if (t.type !== 'expense' || t.obligationId) continue
       const walletId = String(t.walletId ?? t.wallet?._id ?? '')
       const wallet = byId.get(walletId)
       if (wallet && wallet.type !== 'credit_card' && !walletCounts(wallet, rules?.[walletId])) continue
-      const key = dayKey(new Date(t.date || t.createdAt))
-      map.set(key, (map.get(key) ?? 0) + (Number(t.amount) || 0))
+      const date = new Date(t.date || t.createdAt)
+      const key = dayKey(date)
+      const amount = Number(t.amount) || 0
+      map.set(key, (map.get(key) ?? 0) + amount)
+      list.push({ date: date.toISOString(), amount, category: t.category?.name ?? null })
     }
-    return map
+    return { totals: map, spends: list }
   }, [txResponse, walletsResponse, rules])
 
   const weeks = useMemo(
@@ -57,6 +65,8 @@ export function WeeklySpendingHeatmap({ money }: { money: (n: number) => string 
   const shadeFor = (amount: number) => (amount <= 0 || max <= 0 ? 0 : Math.max(1, Math.ceil(Math.sqrt(amount / max) * 4)))
   const weekTotal = (week: Date[]) => week.reduce((sum, d) => sum + (totals.get(dayKey(d)) ?? 0), 0)
   const thisWeek = weekTotal(weeks[WEEKS - 1])
+  // Last full week (Monday to Sunday), for the shareable recap.
+  const recap = useMemo(() => weeklyRecap(spends, weeks[WEEKS - 2][0]), [spends, weeks])
   const lastWeek = weekTotal(weeks[WEEKS - 2])
 
   if (txLoading || walletsLoading) return <Skeleton className="h-56 rounded-2xl" />
@@ -129,6 +139,16 @@ export function WeeklySpendingHeatmap({ money }: { money: (n: number) => string 
           More
         </span>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setRecapOpen(true)}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-border py-2 text-sm font-semibold text-foreground transition-colors hover:border-primary/50"
+      >
+        <Share2 className="h-4 w-4 text-primary" />
+        Share last week’s recap
+      </button>
+      <WeeklyRecapSheet recap={recap} open={recapOpen} onOpenChange={setRecapOpen} />
     </div>
   )
 }
