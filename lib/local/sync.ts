@@ -42,6 +42,7 @@ export const SYNCED_TABLES = [
   'goals',
   'wishlist_items',
   'rules',
+  'milestones',
 ]
 
 const PAGE = 1000

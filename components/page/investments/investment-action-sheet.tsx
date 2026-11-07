@@ -8,6 +8,7 @@ import { useRecordInvestmentReturn, useSellInvestment, useUpdateInvestmentValue 
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import type { Investment } from '@/types/investment'
+import { useInvestMilestones } from '@/hooks/use-milestones'
 
 export type InvestmentAction = 'value' | 'return' | 'sell'
 
@@ -27,6 +28,7 @@ const COPY: Record<InvestmentAction, { title: string; amount: string; submit: st
 export function InvestmentActionSheet({ action, investment, onClose }: InvestmentActionSheetProps) {
   const { currency } = useSettingsStore()
   const { mutate: updateValue, isPending: valuing } = useUpdateInvestmentValue()
+  const checkInvest = useInvestMilestones()
   const { mutate: recordReturn, isPending: returning } = useRecordInvestmentReturn()
   const { mutate: sell, isPending: selling } = useSellInvestment()
   const [amount, setAmount] = useState('')
@@ -50,7 +52,16 @@ export function InvestmentActionSheet({ action, investment, onClose }: Investmen
     if (amountNum <= 0) return void toast.error('Enter an amount')
     if (copy.wallet && !walletId) return void toast.error('Pick a wallet')
     const common = { id: investment.id, date: date ? new Date(date).toISOString() : undefined, notes: note.trim() || undefined }
-    const done = { onSuccess: () => { toast.success(copy.done); onClose() } }
+    // A value back above what you put in, or a first return, is a milestone; otherwise a plain toast.
+    const done = {
+      onSuccess: () => {
+        onClose()
+        if (action === 'sell') return void toast.success(copy.done)
+        void checkInvest((before) =>
+          before.map((h) => (h.id !== investment.id ? h : action === 'value' ? { ...h, value: amountNum } : { ...h, returns: h.returns + amountNum }))
+        ).then((shown) => shown.length === 0 && toast.success(copy.done))
+      },
+    }
 
     if (action === 'value') updateValue({ ...common, value: amountNum }, done)
     else if (action === 'return') recordReturn({ ...common, amount: amountNum, walletId }, done)

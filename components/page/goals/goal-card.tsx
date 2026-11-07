@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import type { Goal } from '@/types/goal'
 import type { GoalProgress } from './goal-progress'
+import { MilestoneJourney, TickedProgress } from '@/components/page/milestones/journey'
 
 interface GoalCardProps {
   goal: Goal
@@ -77,14 +78,14 @@ export function GoalCard({ goal, progress, hideAmounts, onEdit, onArchive }: Goa
         <p className="pb-1 text-xs tabular-nums text-muted-foreground">of {money(Number(goal.targetAmount) || 0)}</p>
       </div>
 
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Saved so far">
-        <div className={`h-full rounded-full transition-all ${reached ? 'bg-success' : 'bg-primary'}`} style={{ width: `${pct}%` }} />
-      </div>
+      <TickedProgress pct={pct} done={reached} label="Saved so far" />
 
       <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{pct.toFixed(0)}% saved</span>
         <span className={late ? 'font-semibold text-destructive' : ''}>{dueText}</span>
       </div>
+
+      <MilestoneJourney kind="goal" subjectId={goal.id} startedAt={goal.createdAt} />
 
       {!reached && (
         <div className="mt-4 grid grid-cols-2 gap-2">

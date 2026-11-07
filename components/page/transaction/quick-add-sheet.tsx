@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { useCreateTransaction } from '@/queries/user/transaction/transaction'
 import { useTransactionUndo } from '@/queries/user/transaction/undo'
+import { useGoalMilestones } from '@/hooks/use-milestones'
 import { useSafeToSpendInputs } from '@/hooks/use-safe-to-spend'
 import { applyTransaction, instantAnswer, safeToSpend, walletCounts } from '@/utils/safe-to-spend'
 import { useListWallets } from '@/queries/user/wallet/wallets'
@@ -85,6 +86,7 @@ export function QuickAddSheet({
   const { data: categoriesResponse } = useListCategories()
   const { mutate: createTransaction, isPending: isCreating } = useCreateTransaction()
   const { updateWithUndo } = useTransactionUndo()
+  const checkGoals = useGoalMilestones()
   const [saving, setSaving] = useState(false)
   const isPending = isCreating || saving
   const { inputs: safeInputs } = useSafeToSpendInputs()
@@ -302,6 +304,13 @@ export function QuickAddSheet({
         finish(answer ? `Saved! ${answer}` : 'Saved!')
         // A rule picked one category and the user chose another.
         maybeOfferRule(description, ruleCategoryId)
+        // Money into a goal's wallets can cross a milestone (first deposit, 25/50/75/100%).
+        if (!keepBalance && (type === 'income' || type === 'transfer')) {
+          const target = type === 'transfer' ? toWalletId : walletId
+          const deltas: Record<string, number> = { [target]: amount }
+          if (type === 'transfer') deltas[walletId] = -(amount + fee)
+          void checkGoals(deltas)
+        }
       },
       onError: (error) => console.error('Error creating transaction:', error),
     })

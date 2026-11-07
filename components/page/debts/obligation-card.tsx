@@ -6,6 +6,7 @@ import { Archive, ArrowDownLeft, ArrowUpRight, MoreHorizontal, Pencil } from 'lu
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import type { Obligation } from '@/types/obligation'
+import { MilestoneJourney, TickedProgress } from '@/components/page/milestones/journey'
 
 interface ObligationCardProps {
   obligation: Obligation
@@ -87,9 +88,7 @@ export function ObligationCard({ obligation, hideAmounts, onPay, onEdit, onArchi
         <p className="shrink-0 pb-1 text-xs tabular-nums text-muted-foreground">of {money(total)}</p>
       </div>
 
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Paid so far">
-        <div className={`h-full rounded-full transition-all ${settled ? 'bg-success' : 'bg-primary'}`} style={{ width: `${pct}%` }} />
-      </div>
+      <TickedProgress pct={pct} done={settled} label="Paid so far" />
 
       <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
@@ -98,6 +97,8 @@ export function ObligationCard({ obligation, hideAmounts, onPay, onEdit, onArchi
         </span>
         {dueText && <span className={overdue ? 'font-semibold text-destructive' : ''}>{dueText}</span>}
       </div>
+
+      <MilestoneJourney kind={isDebt ? 'debt' : 'lending'} subjectId={obligation.id} startedAt={obligation.startDate} />
 
       {!settled && (
         <button
