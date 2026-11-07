@@ -30,6 +30,8 @@ const createGoal = async (data: CreateGoalData) => {
     target_amount: data.targetAmount,
     deadline: data.deadline ?? null,
     linked_wallet_ids: data.linkedWalletIds ?? [],
+    // Only sent when set, so goals still save before migration 0072 is applied.
+    ...(data.funding ? { funding: data.funding } : {}),
   });
   if (error) throw error;
   return { message: 'success' };
@@ -56,6 +58,7 @@ const updateGoal = async (data: UpdateGoalData) => {
       deadline: rest.deadline,
       linked_wallet_ids: rest.linkedWalletIds,
       status: rest.status,
+      ...(rest.funding !== undefined ? { funding: rest.funding } : {}),
     })
     .eq('id', id);
   if (error) throw error;

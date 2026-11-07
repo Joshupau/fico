@@ -1,3 +1,5 @@
+import type { GoalFunding } from '@/utils/goal-funding';
+
 export type GoalStatus = 'active' | 'archived';
 
 export type Goal = {
@@ -10,6 +12,8 @@ export type Goal = {
   linkedWalletIds: string[];
   status: GoalStatus;
   createdAt?: string;
+  /** Share of each pay or a fixed amount set aside on payday (migration 0072). */
+  funding?: GoalFunding | null;
 };
 
 export type CreateGoalData = {
@@ -17,6 +21,7 @@ export type CreateGoalData = {
   targetAmount: number;
   deadline?: string | null;
   linkedWalletIds?: string[];
+  funding?: GoalFunding | null;
 };
 
 export type UpdateGoalData = {
@@ -26,4 +31,5 @@ export type UpdateGoalData = {
   deadline?: string | null;
   linkedWalletIds?: string[];
   status?: GoalStatus;
+  funding?: GoalFunding | null;
 };

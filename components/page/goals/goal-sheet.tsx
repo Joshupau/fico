@@ -9,6 +9,7 @@ import { useListWallets } from '@/queries/user/wallet/wallets'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import type { Goal } from '@/types/goal'
+import type { GoalFunding } from '@/utils/goal-funding'
 import { asGoalWallets } from './goal-progress'
 
 interface GoalSheetProps {
@@ -30,6 +31,8 @@ export function GoalSheet({ open, onClose, goal }: GoalSheetProps) {
   const [target, setTarget] = useState('')
   const [deadline, setDeadline] = useState('')
   const [walletIds, setWalletIds] = useState<string[]>([])
+  const [fundKind, setFundKind] = useState<'off' | GoalFunding['kind']>('off')
+  const [fundValue, setFundValue] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -37,6 +40,8 @@ export function GoalSheet({ open, onClose, goal }: GoalSheetProps) {
     setTarget(goal ? String(goal.targetAmount) : '')
     setDeadline(goal?.deadline ?? '')
     setWalletIds(goal?.linkedWalletIds ?? [])
+    setFundKind(goal?.funding?.kind ?? 'off')
+    setFundValue(goal?.funding ? String(goal.funding.value) : '')
   }, [open, goal])
 
   const toggleWallet = (id: string) =>
@@ -52,7 +57,12 @@ export function GoalSheet({ open, onClose, goal }: GoalSheetProps) {
     const targetAmount = Number(target) || 0
     if (targetAmount <= 0) return void toast.error('Enter the amount you want to save')
 
-    const payload = { name: name.trim(), targetAmount, deadline: deadline || null, linkedWalletIds: walletIds }
+    const value = Number(fundValue) || 0
+    const funding: GoalFunding | null = fundKind !== 'off' && value > 0 ? { kind: fundKind, value: fundKind === 'percent' ? Math.min(100, value) : value } : null
+    if (funding && walletIds.length === 0) return void toast.error('Pick the wallet the payday money goes into')
+    // Funding is only sent when it changed, so goals keep saving before the server has the column.
+    const fundingChanged = JSON.stringify(funding) !== JSON.stringify(goal?.funding ?? null)
+    const payload = { name: name.trim(), targetAmount, deadline: deadline || null, linkedWalletIds: walletIds, ...(fundingChanged ? { funding } : {}) }
     if (isEdit && goal) {
       update({ id: goal.id, ...payload }, { onSuccess: () => finish('Saved') })
       return
@@ -99,6 +109,37 @@ export function GoalSheet({ open, onClose, goal }: GoalSheetProps) {
             )
           })}
         </div>
+      </Field>
+
+      <Field
+        label="Add to it on payday"
+        hint={
+          fundKind === 'off'
+            ? 'On payday, Fico can offer to move part of your pay here in one tap.'
+            : walletIds.length === 0
+              ? 'Pick a wallet above. The money goes into the first one.'
+              : 'Offered on the payday card. Nothing moves until you tap.'
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Add on payday">
+          {([
+            ['off', 'Off'],
+            ['percent', '% of pay'],
+            ['fixed', 'Fixed amount'],
+          ] as const).map(([kind, label]) => (
+            <button key={kind} type="button" role="radio" aria-checked={fundKind === kind} onClick={() => setFundKind(kind)} className={chipClass(fundKind === kind)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {fundKind === 'percent' && (
+          <input value={fundValue} onChange={(e) => setFundValue(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="10" aria-label="Percent of each pay" className={`${fieldClass} mt-2`} />
+        )}
+        {fundKind === 'fixed' && (
+          <div className="mt-2">
+            <MoneyField value={fundValue} onChange={setFundValue} ariaLabel="Amount each payday" />
+          </div>
+        )}
       </Field>
     </FormSheet>
   )
