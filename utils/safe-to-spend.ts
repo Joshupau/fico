@@ -10,13 +10,16 @@ import { occurrence, type ForecastBill } from '@/utils/forecast'
  *   left today = per day - spent today
  */
 
+/** A bill or planned expense still to pay. `amount` is what is left to pay. */
+export type SafeBill = { dueDate: string; amount: number; name?: string }
+
 export type SafeToSpendInput = {
   /** Total of cash-like wallets (cash, bank, e-wallet, savings you spend from). Not credit cards. */
   cashBalance: number
   /** Money to keep untouched, such as a bank's minimum balance. */
   floor?: number
   /** Unpaid bills still to pay. `amount` is what is left to pay. */
-  bills: { dueDate: string; amount: number }[]
+  bills: SafeBill[]
   /** Income still to come: planned items or recurring income. */
   incomes: { date: string; amount: number }[]
   /** Spent so far today, already taken out of `cashBalance`. */
@@ -34,6 +37,10 @@ export type SafeToSpend = {
   /** What is free to spend over those days, counting today's own spending. */
   usable: number
   billsBefore: number
+  /** The bills behind `billsBefore`, soonest first (overdue ones lead). */
+  billsDue: SafeBill[]
+  /** First bill on or after the next income, which that income is expected to cover. */
+  nextBill: SafeBill | null
   perDay: number
   leftToday: number
   /** True when `usable` is negative: the bills before payday are more than the cash. */
@@ -56,13 +63,15 @@ export function safeToSpend(input: SafeToSpendInput): SafeToSpend {
   const days = next ? Math.max(1, differenceInCalendarDays(next, today)) : Math.max(1, input.fallbackDays ?? 30)
   const horizonEnd = next ?? new Date(today.getTime() + days * 86_400_000)
 
-  const billsBefore = input.bills
-    .filter((b) => {
-      const due = startOfDay(parseISO(b.dueDate))
-      // Overdue bills still have to be paid, and a bill due on payday is covered by that income.
-      return differenceInCalendarDays(due, horizonEnd) < 0
-    })
-    .reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
+  const sorted = input.bills
+    .filter((b) => (Number(b.amount) || 0) > 0)
+    .map((b) => ({ ...b, amount: Number(b.amount) || 0 }))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  // Overdue bills still have to be paid, and a bill due on payday is covered by that income.
+  const isBefore = (b: SafeBill) => differenceInCalendarDays(startOfDay(parseISO(b.dueDate)), horizonEnd) < 0
+  const billsDue = sorted.filter(isBefore)
+  const billsBefore = billsDue.reduce((sum, b) => sum + b.amount, 0)
+  const nextBill = sorted.find((b) => !isBefore(b)) ?? null
 
   const usable = Number(input.cashBalance) - floor - billsBefore
   const pool = usable + spentToday
@@ -73,6 +82,8 @@ export function safeToSpend(input: SafeToSpendInput): SafeToSpend {
     days,
     usable,
     billsBefore,
+    billsDue,
+    nextBill,
     perDay,
     leftToday: perDay - spentToday,
     short: usable < 0,
@@ -139,7 +150,7 @@ export function safeToSpendInputs(data: {
   wallets: { id?: string; _id?: string; type?: string; balance?: number | string; status?: string }[]
   openBills: ForecastBill[]
   /** Planned one-off items. Expenses count at their high estimate; planned income is not counted. */
-  planned?: { type: 'income' | 'expense'; date: string; amountHigh: number; amountLow?: number }[]
+  planned?: { type: 'income' | 'expense'; date: string; amountHigh: number; amountLow?: number; name?: string }[]
   rules?: Record<string, SafeWalletRule>
   spentToday?: number
   /** Today's spending per wallet id. When given, spending from wallets left out of the total is dropped. */
@@ -176,7 +187,7 @@ export function safeToSpendInputs(data: {
     const add = (date: Date, amount: number) => {
       if (amount <= 0) return
       if (bill.type === 'income') incomes.push({ date: ymd(date), amount })
-      else bills.push({ dueDate: ymd(date), amount })
+      else bills.push({ dueDate: ymd(date), amount, name: bill.name })
     }
     add(due, Math.max(0, (Number(bill.amount) || 0) - (Number(bill.paidAmount) || 0)))
     if (!bill.isRecurring || !bill.recurringFrequency) continue
@@ -191,7 +202,7 @@ export function safeToSpendInputs(data: {
     const date = startOfDay(parseISO(String(item.date)))
     if (date < today) continue
     const amount = Number(item.amountHigh) || Number(item.amountLow) || 0
-    if (amount > 0) bills.push({ dueDate: ymd(date), amount })
+    if (amount > 0) bills.push({ dueDate: ymd(date), amount, name: item.name })
   }
 
   return {
