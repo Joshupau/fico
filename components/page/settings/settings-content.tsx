@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { format, formatDistanceToNowStrict } from 'date-fns'
 import toast from 'react-hot-toast'
-import { Bell, CalendarDays, Check, ChevronRight, Clock, Coins, Download, EyeOff, House, LayoutList, LogOut, Moon, RefreshCw, RotateCcw, Trash2, UserRound } from 'lucide-react'
+import { Bell, CalendarDays, Check, ChevronRight, Clock, Coins, Fingerprint, Lock, Timer, Download, EyeOff, House, LayoutList, LogOut, Moon, RefreshCw, RotateCcw, Trash2, UserRound } from 'lucide-react'
 import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { DEFAULT_SETTINGS, useSettingsStore } from '@/store/settings-store'
@@ -29,6 +29,8 @@ import {
   type PushSupport,
 } from '@/utils/push'
 import { useSyncStatus } from '@/lib/local/status'
+import { useAppLock } from '@/store/app-lock-store'
+import { LOCK_TIMEOUTS, biometricAvailable, hashPin, isValidPin, newSalt, registerBiometric } from '@/utils/app-lock'
 import { useSyncSheet } from '@/components/page/settings/sync-debug'
 import type { CurrencyCode, DateFormat, LandingPage } from '@/types/settings'
 
@@ -326,6 +328,118 @@ function CheckinTimeRow() {
   )
 }
 
+const timeoutLabel = (min: number) => (min === 0 ? 'Right away' : `After ${min} minute${min === 1 ? '' : 's'}`)
+
+/** Sheet to choose a PIN: typed twice, 4 to 6 digits. Only its hash is kept. */
+function PinSheet({ open, onOpenChange, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; onSaved: () => void }) {
+  const [first, setFirst] = useState('')
+  const [second, setSecond] = useState('')
+  const [saving, setSaving] = useState(false)
+  const mismatch = second.length >= first.length && first.length > 0 && second !== first
+  const ready = isValidPin(first) && second === first
+
+  const save = async () => {
+    setSaving(true)
+    const salt = newSalt()
+    const pinHash = await hashPin(first, salt)
+    useAppLock.getState().set({ enabled: true, salt, pinHash, pinLength: first.length, failures: 0, lockedUntil: 0, locked: false })
+    setSaving(false)
+    setFirst('')
+    setSecond('')
+    onOpenChange(false)
+    onSaved()
+  }
+
+  const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6)
+  const pinField = 'block min-h-12 w-full rounded-2xl border border-border bg-background px-4 text-center text-xl tracking-[0.5em] text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="p-0 sm:max-w-md" showCloseButton={false}>
+        <SheetHeader className="border-b-0 pb-2">
+          <SheetTitle>Choose a PIN</SheetTitle>
+          <SheetDescription>4 to 6 digits. You&apos;ll enter it when Fico opens.</SheetDescription>
+        </SheetHeader>
+        <div data-vaul-no-drag className="space-y-3 px-4 pb-6">
+          <input type="password" inputMode="numeric" autoComplete="new-password" aria-label="PIN" placeholder="PIN" value={first} onChange={(e) => setFirst(digits(e.target.value))} className={pinField} />
+          <input type="password" inputMode="numeric" autoComplete="new-password" aria-label="PIN again" placeholder="Again" value={second} onChange={(e) => setSecond(digits(e.target.value))} className={pinField} />
+          <p className="h-4 text-center text-xs text-destructive">{mismatch ? 'The PINs don’t match' : ''}</p>
+          <button type="button" disabled={!ready || saving} onClick={save} className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+            Turn on app lock
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function AppLockRows() {
+  const lock = useAppLock()
+  const [pinOpen, setPinOpen] = useState(false)
+  const [timeoutOpen, setTimeoutOpen] = useState(false)
+  const [canBio, setCanBio] = useState(false)
+
+  useEffect(() => {
+    biometricAvailable().then(setCanBio)
+  }, [])
+
+  const toggle = (next: boolean) => {
+    if (next) setPinOpen(true)
+    else {
+      lock.disable()
+      toast.success('App lock is off')
+    }
+  }
+
+  const toggleBio = async (next: boolean) => {
+    if (!next) return lock.set({ biometricId: null })
+    try {
+      const id = await registerBiometric('Fico app lock')
+      lock.set({ biometricId: id })
+      toast.success('Face ID or fingerprint can unlock Fico')
+    } catch {
+      toast.error('Could not set up Face ID or fingerprint')
+    }
+  }
+
+  return (
+    <>
+      <Row
+        icon={<Lock className="size-[18px]" />}
+        tone="warning"
+        label="App lock"
+        hint={lock.enabled ? `PIN${lock.biometricId ? ' or Face ID' : ''} when Fico opens` : 'Ask for a PIN when Fico opens'}
+        onRowClick={() => toggle(!lock.enabled)}
+        control={<Toggle checked={lock.enabled} onChange={toggle} label="App lock" />}
+      />
+      {lock.enabled && (
+        <>
+          <Row icon={<Timer className="size-[18px]" />} tone="warning" label="Lock when I leave" value={timeoutLabel(lock.timeoutMin)} onClick={() => setTimeoutOpen(true)} />
+          {canBio && (
+            <Row
+              icon={<Fingerprint className="size-[18px]" />}
+              tone="warning"
+              label="Face ID or fingerprint"
+              onRowClick={() => toggleBio(!lock.biometricId)}
+              control={<Toggle checked={!!lock.biometricId} onChange={toggleBio} label="Face ID or fingerprint" />}
+            />
+          )}
+          <Row icon={<Lock className="size-[18px]" />} tone="warning" label="Change PIN" onClick={() => setPinOpen(true)} />
+        </>
+      )}
+      <PinSheet open={pinOpen} onOpenChange={setPinOpen} onSaved={() => toast.success('App lock is on')} />
+      <Picker
+        open={timeoutOpen}
+        onOpenChange={setTimeoutOpen}
+        title="Lock when I leave"
+        description="How long Fico can be in the background before it asks for your PIN again."
+        options={LOCK_TIMEOUTS.map((m) => ({ value: String(m), label: timeoutLabel(m) }))}
+        value={String(lock.timeoutMin)}
+        onSelect={(v) => lock.set({ timeoutMin: Number(v) })}
+      />
+    </>
+  )
+}
+
 function SyncDetailsRow() {
   const { active, online, pending, dead, serverNeedsUpdate, lastSyncedAt } = useSyncStatus()
   const hint = !active
@@ -456,7 +570,7 @@ export function SettingsPageContent() {
         />
       </Group>
 
-      <Group title="Money" footer="Hiding amounts keeps your balance private when someone is looking over your shoulder. Tap the eye on Home to show it.">
+      <Group title="Money and privacy" footer="Hiding amounts keeps your balance private when someone is looking over your shoulder. App lock asks for a PIN; the PIN itself is never stored, only a scrambled check of it.">
         <Row
           icon={<Coins className="size-[18px]" />}
           tone="warning"
@@ -471,6 +585,7 @@ export function SettingsPageContent() {
           onRowClick={settings.toggleHideAmountsOnOpen}
           control={<Toggle checked={settings.hideAmountsOnOpen} onChange={settings.setHideAmountsOnOpen} label="Hide amounts when I open the app" />}
         />
+        <AppLockRows />
       </Group>
 
       <Group title="Notifications">

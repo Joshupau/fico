@@ -657,3 +657,10 @@ html.theme-instant *::after {
   0% { opacity: 0.9; transform: scale(0.7); }
   100% { opacity: 0; transform: scale(1.7); }
 }
+
+/* App lock: a short shake on a wrong PIN. */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
