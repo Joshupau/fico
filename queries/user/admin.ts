@@ -60,3 +60,30 @@ export const logAppActivity = async (platform: string) => {
     // traffic logging must never affect the app
   }
 };
+
+export interface AdminCohort {
+  /** Monday of the signup week. */
+  cohort: string;
+  signups: number;
+  onboarded: number;
+  logged: number;
+  eligible1: number;
+  day1: number;
+  eligible3: number;
+  day3: number;
+  eligible7: number;
+  day7: number;
+}
+
+/** Signups per week and how many came back on day 1, 3 and 7 (migration 0071). Counts only. */
+export const useAdminRetention = (enabled: boolean, weeks = 8) =>
+  useQuery({
+    queryKey: ["admin-retention", weeks],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_retention", { p_weeks: weeks });
+      if (error) throw error;
+      return toCamelCase(data ?? []) as AdminCohort[];
+    },
+  });
