@@ -61,6 +61,7 @@ export const useCreateInvestment = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["investment-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-value-points"] });
     },
     onError: (error) => {
       handleApiError(error);
@@ -170,6 +171,7 @@ export const useArchiveInvestment = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["investment-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-value-points"] });
     },
     onError: (error) => {
       handleApiError(error);
@@ -205,6 +207,7 @@ export const useUpdateInvestmentValue = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["investment-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-value-points"] });
     },
     onError: (error) => {
       handleApiError(error);
@@ -277,6 +280,7 @@ export const useSellInvestment = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["investment-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-value-points"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
     onError: (error) => {

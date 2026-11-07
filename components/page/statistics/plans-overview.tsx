@@ -18,6 +18,7 @@ import { useObligationSummary } from '@/queries/user/obligation/obligations'
 import { useListWishlist } from '@/queries/user/wishlist/wishlist'
 import { useInvestmentSummary, useListInvestments } from '@/queries/user/investment/investments'
 import { useLiveHoldings } from '@/queries/crypto/prices'
+import { PortfolioCard } from '@/components/page/statistics/portfolio-card'
 import { useListPlannedItems } from '@/queries/user/planned/planned-items'
 import { useSettingsStore } from '@/store/settings-store'
 import { startOfMonth } from '@/utils/budget-month'
@@ -400,6 +401,11 @@ export function PlansOverview() {
 
       <InsightSectionBlock id="debts" title="Debts and investing" hint="Your net position and how your investments are doing.">
         {grid('debts') ?? <Empty to="/debts" text="No debts, loans or investments yet." action="Open Debts" />}
+        {invest.count > 0 && (
+          <div className="mt-3">
+            <PortfolioCard investments={investments} liveById={liveById} money={money} loading={investmentsLoading} />
+          </div>
+        )}
       </InsightSectionBlock>
     </>
   )

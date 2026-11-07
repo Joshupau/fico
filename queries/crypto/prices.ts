@@ -36,6 +36,8 @@ export function useLiveHoldings(investments: Investment[]) {
   const liveById = useMemo(() => {
     const result: Record<string, LiveHolding> = {}
     const prices = query.data?.prices ?? {}
+    // The server's price job runs every 30 minutes; older than two hours means it has stopped.
+    const checkedAt = query.dataUpdatedAt
     for (const holding of holdings) {
       const quantity = Number(holding.quantity)
       const coin = prices[holding.coinId as string]
@@ -45,11 +47,11 @@ export function useLiveHoldings(investments: Investment[]) {
       if (coin && (!saved || coin.at >= saved.at)) {
         result[holding.id] = { value: quantity * coin.price, price: coin.price, change24h: coin.change24h, at: coin.at, stale: coin.stale }
       } else if (saved) {
-        result[holding.id] = { value: quantity * saved.price, price: saved.price, change24h: null, at: saved.at, stale: Date.now() - saved.at > 2 * 3_600_000 }
+        result[holding.id] = { value: quantity * saved.price, price: saved.price, change24h: null, at: saved.at, stale: !checkedAt || checkedAt - saved.at > 2 * 3_600_000 }
       }
     }
     return result
-  }, [holdings, query.data])
+  }, [holdings, query.data, query.dataUpdatedAt])
 
   return {
     holdings,

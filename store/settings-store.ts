@@ -13,6 +13,7 @@ type SettingsActions = {
   setOnboardingCompleted: (value: boolean) => void
   setSafeToSpendFloor: (value: number) => void
   setSafeToSpendWallet: (walletId: string, rule: { include?: boolean; min?: number }) => void
+  setConcentrationLimit: (percent: number) => void
   resetSettings: () => void
 }
 
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   onboardingCompleted: false,
   safeToSpendFloor: 0,
   safeToSpendWallets: {},
+  concentrationLimit: 30,
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -46,6 +48,7 @@ export const useSettingsStore = create<SettingsStore>()(
         set((state) => ({
           safeToSpendWallets: { ...state.safeToSpendWallets, [walletId]: { ...state.safeToSpendWallets?.[walletId], ...rule } },
         })),
+      setConcentrationLimit: (percent) => set({ concentrationLimit: Math.min(90, Math.max(10, Number(percent) || 30)) }),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {
