@@ -40,35 +40,38 @@ function findField(row: Row, ...keys: string[]): string {
   return ''
 }
 
+const sepOf = (header: string) => (header.includes('\t') ? '\t' : header.includes(';') ? ';' : ',')
+
+function splitCsvLine(line: string, sep = sepOf(line)): string[] {
+  const fields: string[] = []
+  let cur = ''
+  let inQ = false
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (c === '"') {
+      if (inQ && line[i + 1] === '"') {
+        cur += '"'
+        i++
+      } else inQ = !inQ
+    } else if (c === sep && !inQ) {
+      fields.push(cur.trim())
+      cur = ''
+    } else {
+      cur += c
+    }
+  }
+  fields.push(cur.trim())
+  return fields
+}
+
 function parseCSV(content: string): Row[] {
-  const cleaned = content.replace(/^﻿/, '')
+  const cleaned = content.replace(/^\uFEFF/, '')
   const lines = cleaned.split(/\r?\n/).filter((l) => l.trim())
   if (lines.length < 2) return []
 
   const header = lines[0]
-  const sep = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ','
-
-  const parseLine = (line: string): string[] => {
-    const fields: string[] = []
-    let cur = ''
-    let inQ = false
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i]
-      if (c === '"') {
-        if (inQ && line[i + 1] === '"') {
-          cur += '"'
-          i++
-        } else inQ = !inQ
-      } else if (c === sep && !inQ) {
-        fields.push(cur.trim())
-        cur = ''
-      } else {
-        cur += c
-      }
-    }
-    fields.push(cur.trim())
-    return fields
-  }
+  const sep = sepOf(header)
+  const parseLine = (line: string) => splitCsvLine(line, sep)
 
   const headers = parseLine(header).map(normalizeKey)
   return lines.slice(1).map((line) => {
@@ -129,14 +132,46 @@ function mapIndicator(s: string): 'income' | 'expense' | null {
   return null
 }
 
+/** Which file column holds each field, for CSVs whose headers Fico doesn't recognise. */
+export type ColumnMapping = Partial<Record<'date' | 'amount' | 'description' | 'debit' | 'credit' | 'category', string>>
+
+/** The header names of a CSV, as written in the file. */
+export function csvHeaders(content: string): string[] {
+  const first = content.replace(/^\uFEFF/, '').split(/\r?\n/).find((l) => l.trim()) ?? ''
+  return splitCsvLine(first).map((h) => h.trim()).filter(Boolean)
+}
+
+const applyMapping = (rows: Row[], mapping?: ColumnMapping): Row[] => {
+  if (!mapping) return rows
+  const pairs = Object.entries(mapping).filter(([, col]) => !!col) as [string, string][]
+  return rows.map((row) => {
+    const next = { ...row }
+    for (const [field, col] of pairs) {
+      const value = row[normalizeKey(col)]
+      if (value !== undefined) next[field] = value
+    }
+    return next
+  })
+}
+
 export function parseImportCsv(
   content: string,
   categories: { id: string; name: string }[],
   defaultCategoryId?: string | null,
   /** Categorization rules: used when the file's own Category column doesn't name one. */
+  rules: Rule[] = [],
+  mapping?: ColumnMapping
+): ParsedImport {
+  return parseImportRows(applyMapping(parseCSV(content), mapping), categories, defaultCategoryId, rules)
+}
+
+/** The shared half: rows keyed by normalised header names (from a CSV, OFX or QIF file). */
+export function parseImportRows(
+  rows: Row[],
+  categories: { id: string; name: string }[],
+  defaultCategoryId?: string | null,
   rules: Rule[] = []
 ): ParsedImport {
-  const rows = parseCSV(content)
   const valid: ImportRow[] = []
   const skipped: SkippedRow[] = []
 
@@ -167,9 +202,18 @@ export function parseImportCsv(
     } else {
       amountStr = findField(row, 'Amount', 'amount')
       indicator = findField(row, 'Credit/debit indicator', 'credit debit indicator', 'indicator')
+      // Firefly III and Actual exports carry the direction in a type column or the amount's sign.
+      if (!indicator.trim()) {
+        const kind = findField(row, 'Type', 'type').trim().toLowerCase()
+        if (['withdrawal', 'expense', 'debit', 'payment'].includes(kind)) indicator = 'DEBIT'
+        else if (['deposit', 'income', 'credit', 'revenue'].includes(kind)) indicator = 'CREDIT'
+        else if (kind === 'transfer' || kind === 'opening balance') indicator = ''
+        else if (/^\s*[-(−]/.test(amountStr)) indicator = 'DEBIT'
+        else if (amountStr.trim()) indicator = 'CREDIT'
+      }
     }
 
-    const description = findField(row, 'Description', 'description', 'memo', 'narration')
+    const description = findField(row, 'Description', 'description', 'memo', 'narration', 'notes')
     const counterParty = findField(row, 'Counter party name', 'counterparty name', 'beneficiary', 'payee', 'merchant')
     const txRef = findField(row, 'Transaction reference', 'transaction reference', 'reference', 'ref', 'reference no')
     const txType = findField(row, 'Transaction type', 'transaction type')

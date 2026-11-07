@@ -100,6 +100,8 @@ export type ImportTransactionsData = {
   walletId: string;
   categoryId?: string;
   preview?: string | boolean;
+  /** Which columns hold what, for CSVs with headers Fico doesn't recognise. */
+  mapping?: import('@/utils/import-csv').ColumnMapping;
 }
 
 export type transactionsSummaryParams = {

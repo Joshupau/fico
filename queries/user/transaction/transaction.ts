@@ -3,7 +3,7 @@
 import { axiosInstance, axiosInstanceFormData } from "@/utils/axios-instance";
 import { supabase } from "@/utils/supabase-client";
 import { toCamelCase } from "@/utils/case-transform";
-import { parseImportCsv } from "@/utils/import-csv";
+import { dropDuplicates, parseImportFile } from "@/utils/import-formats";
 import { ruleFromRow } from "@/queries/user/rule/rules";
 import { handleApiError } from "@/utils/error-handler";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -350,18 +350,37 @@ const importTransactions = async (data: ImportTransactionsData) => {
     // The user's categorization rules fill rows the file leaves without a category (none if the table isn't there yet).
     const { data: ruleRows } = await supabase.from('rules').select('*');
     const rules = (ruleRows ?? []).map(ruleFromRow);
-    const { totalRows, valid, skipped } = parseImportCsv(await data.file.text(), categories ?? [], data.categoryId, rules);
+    const parsed = parseImportFile(await data.file.text(), data.file.name, categories ?? [], data.categoryId, rules, data.mapping);
+    const { totalRows, skipped, format } = parsed;
+
+    // Leave out rows this wallet already has, so importing the same statement twice adds nothing.
+    let valid = parsed.valid;
+    let duplicates = 0;
+    if (valid.length > 0) {
+      const times = valid.map((r) => new Date(r.date).getTime());
+      const from = new Date(Math.min(...times) - 86_400_000).toISOString();
+      const to = new Date(Math.max(...times) + 86_400_000).toISOString();
+      const { data: existing } = await supabase
+        .from('transactions')
+        .select('date, amount, type, description')
+        .eq('wallet_id', data.walletId)
+        .gte('date', from)
+        .lte('date', to);
+      const result = dropDuplicates(valid, existing ?? []);
+      valid = result.fresh;
+      duplicates = result.duplicates;
+    }
 
     if (preview) {
       return {
         message: 'success',
-        data: { totalRows, willImport: valid.length, willSkip: skipped.length, skippedRows: skipped, preview: valid },
+        data: { totalRows, format, willImport: valid.length, duplicates, willSkip: skipped.length, skippedRows: skipped, preview: valid },
       };
     }
     if (valid.length === 0) {
       return {
         message: 'success',
-        data: { message: 'No valid transactions found to import.', totalRows, imported: 0, skipped: skipped.length, skippedRows: skipped },
+        data: { message: duplicates ? 'Everything in this file is already in Fico.' : 'No valid transactions found to import.', totalRows, imported: 0, duplicates, skipped: skipped.length, skippedRows: skipped },
       };
     }
 
@@ -376,6 +395,7 @@ const importTransactions = async (data: ImportTransactionsData) => {
         message: `Successfully imported ${valid.length} transaction${valid.length !== 1 ? 's' : ''}.`,
         totalRows,
         imported: result?.imported ?? valid.length,
+        duplicates,
         skipped: skipped.length,
         skippedRows: skipped,
       },

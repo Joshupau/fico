@@ -1,5 +1,6 @@
 // Run: npx tsx scripts/test-import-csv.mts
-import { parseImportCsv } from '../utils/import-csv'
+import { csvHeaders, parseImportCsv } from '../utils/import-csv'
+import { detectFormat, dropDuplicates, parseImportFile } from '../utils/import-formats'
 
 let failures = 0
 const check = (label: string, ok: boolean, extra?: unknown) => {
@@ -29,6 +30,53 @@ check(
   ruled.valid.map((r) => r.category_id).join() === 'food,gifts,misc' && ruled.valid[0].tags.includes('eat'),
   ruled.valid.map((r) => [r.category_id, r.tags])
 )
+
+// ---------- Other formats (E6) ----------
+const ofx = `OFXHEADER:100
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20240105120000[+8:PHT]<TRNAMT>-150.00<FITID>A1<NAME>STARBUCKS BGC<MEMO>POS purchase
+</STMTTRN>
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20240115<TRNAMT>25000.00<FITID>A2<NAME>PAYROLL ACME
+</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`
+const o = parseImportFile(ofx, 'statement.ofx', [])
+check('OFX detected and parsed', o.format === 'ofx' && o.valid.length === 2, o)
+check('OFX signs and names', o.valid[0].type === 'expense' && o.valid[0].amount === 150 && o.valid[0].description.includes('STARBUCKS') && o.valid[1].type === 'income' && o.valid[1].date.startsWith('2024-01-1'), o.valid)
+
+const qif = `!Type:Bank
+D01/05/2024
+T-1,200.50
+PMeralco
+Lutilities
+^
+D1/15'24
+T5000
+PSalary
+L[Savings]
+^`
+const q = parseImportFile(qif, 'export.qif', [{ id: 'util', name: 'Utilities' }])
+check('QIF detected and parsed', q.format === 'qif' && q.valid.length === 2, q)
+check('QIF amounts, dates and categories', q.valid[0].amount === 1200.5 && q.valid[0].type === 'expense' && q.valid[0].category_id === 'util' && q.valid[1].category_id === null && q.valid[1].type === 'income', q.valid)
+
+const firefly = parseImportCsv('description,amount,date,type,category\nGroceries,-850.25,2024-02-01,Withdrawal,\nRefund,120,2024-02-02,Deposit,\nTo savings,-1000,2024-02-03,Transfer,', [])
+check('Firefly III: type column, transfers skipped', firefly.valid.length === 2 && firefly.valid[0].type === 'expense' && firefly.valid[0].amount === 850.25 && firefly.valid[1].type === 'income' && firefly.skipped.length === 1, firefly)
+
+const actual = parseImportCsv('Date,Payee,Notes,Category,Amount\n2024-03-01,Jollibee,,Food,-245.00\n2024-03-02,Boss,March pay,,30000.00', [{ id: 'food', name: 'Food' }])
+check('Actual Budget: signed amounts, payee, notes', actual.valid.length === 2 && actual.valid[0].type === 'expense' && actual.valid[0].category_id === 'food' && actual.valid[1].description.includes('March pay'), actual.valid)
+
+const odd = 'Posted On,Details,Value\n2024-04-01,Load,-99\n'
+check('unknown headers are listed for mapping', csvHeaders(odd).join() === 'Posted On,Details,Value')
+const mapped = parseImportCsv(odd, [], null, [], { date: 'Posted On', description: 'Details', amount: 'Value' })
+check('column mapping', mapped.valid.length === 1 && mapped.valid[0].amount === 99 && mapped.valid[0].type === 'expense', mapped)
+check('CSV stays CSV', detectFormat('Date,Amount\n', 'x.csv') === 'csv')
+
+// Re-importing the same file adds nothing; a real second identical purchase still imports.
+const first = parseImportFile(ofx, 'statement.ofx', []).valid
+const existing = first.map((r) => ({ date: r.date, amount: String(r.amount), type: r.type, description: r.description }))
+const again = dropDuplicates(parseImportFile(ofx, 'statement.ofx', []).valid, existing)
+check('re-import adds nothing', again.fresh.length === 0 && again.duplicates === 2, again)
+const twoCoffees = dropDuplicates([first[0], first[0]], [existing[0]])
+check('one-to-one matching keeps a real second purchase', twoCoffees.fresh.length === 1 && twoCoffees.duplicates === 1, twoCoffees)
 
 console.log(failures ? failures + ' FAILURES' : 'ALL PASSED')
 process.exit(failures ? 1 : 0)
