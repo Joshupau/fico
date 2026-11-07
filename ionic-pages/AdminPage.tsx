@@ -6,7 +6,7 @@ import { Link, Redirect } from 'react-router-dom'
 import { Activity, ChevronLeft, Search, ShieldCheck, Users } from 'lucide-react'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { isAdminEmail } from '@/lib/admin'
-import { useAdminTraffic, useAdminUsers } from '@/queries/user/admin'
+import { useAdminRetention, useAdminTraffic, useAdminUsers, type AdminCohort } from '@/queries/user/admin'
 import { useUser } from '@/store/auth-store'
 
 const RANGES = [7, 30, 90] as const
@@ -36,6 +36,40 @@ function Stat({ icon: Icon, label, value, note }: { icon: typeof Users; label: s
   )
 }
 
+const share = (n: number, of: number) => (of > 0 ? `${Math.round((n / of) * 100)}%` : '–')
+
+/** One signup week as a row of shrinking bars: signed up, onboarded, back on day 1, 3 and 7. */
+function CohortRow({ c }: { c: AdminCohort }) {
+  const steps = [
+    { label: 'Onboarded', n: c.onboarded, of: c.signups },
+    { label: 'Day 1', n: c.day1, of: c.eligible1 },
+    { label: 'Day 3', n: c.day3, of: c.eligible3 },
+    { label: 'Day 7', n: c.day7, of: c.eligible7 },
+  ]
+  return (
+    <li className="py-3">
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="font-semibold">Week of {formatDate(c.cohort)}</span>
+        <span className="text-muted-foreground">
+          {c.signups} signup{c.signups === 1 ? '' : 's'} · {share(c.logged, c.signups)} logged money
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-4 gap-2">
+        {steps.map((s) => (
+          <div key={s.label} className="min-w-0">
+            <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full rounded-full bg-primary" style={{ width: s.of > 0 ? `${(s.n / s.of) * 100}%` : '0%' }} />
+            </div>
+            <p className="mt-1 truncate text-[11px] text-muted-foreground">
+              {s.label} <span className="font-semibold text-foreground">{s.of > 0 ? share(s.n, s.of) : 'not yet'}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+    </li>
+  )
+}
+
 export default function AdminPage() {
   const user = useUser()
   const isAdmin = isAdminEmail(user?.email)
@@ -44,6 +78,7 @@ export default function AdminPage() {
 
   const traffic = useAdminTraffic(isAdmin, days)
   const users = useAdminUsers(isAdmin)
+  const retention = useAdminRetention(isAdmin)
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -132,6 +167,26 @@ export default function AdminPage() {
               </div>
             )}
             <p className="px-1 text-xs text-muted-foreground">Traffic counts start from when this feature was released.</p>
+          </section>
+
+          <section aria-label="Drop-off" className="space-y-3">
+            <h2 className="px-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Drop-off</h2>
+            <div className="rounded-3xl border border-border bg-card px-4 py-1 shadow-ios">
+              {retention.isError ? (
+                <p className="py-3 text-sm text-muted-foreground">Run migration 0071 to see where new users drop off.</p>
+              ) : retention.data?.length ? (
+                <ul className="divide-y divide-border">
+                  {retention.data.map((c) => (
+                    <CohortRow key={c.cohort} c={c} />
+                  ))}
+                </ul>
+              ) : (
+                <p className="py-3 text-sm text-muted-foreground">{retention.isLoading ? 'Loading…' : 'No signups in the last 8 weeks.'}</p>
+              )}
+            </div>
+            <p className="px-1 text-xs text-muted-foreground">
+              Day N counts people who opened the app on day N or later in their first two weeks, out of those who signed up at least N days ago. Counts only, no personal data.
+            </p>
           </section>
 
           <section aria-label="Users" className="space-y-3">

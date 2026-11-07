@@ -30,6 +30,9 @@ export type Investment = {
   coinId?: string | null;
   coinSymbol?: string | null;
   quantity?: number | null;
+  /** The last price the server's price job saved, and when (crypto only). */
+  lastPrice?: number | null;
+  priceUpdatedAt?: string | null;
 };
 
 export type CreateInvestmentData = {

@@ -12,6 +12,8 @@ import { useSettingsStore } from '@/store/settings-store'
 import { useThemeStore } from '@/store/theme-store'
 import { useAuthStore } from '@/store/auth-store'
 import { markOnboardingDone } from '@/utils/onboarding'
+import { useCreateGoal } from '@/queries/user/goal/goals'
+import { GoalStep, type GoalDraft } from '@/components/page/onboarding/goal-step'
 import type { CurrencyCode, DateFormat, LandingPage } from '@/types/settings'
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -63,16 +65,30 @@ export function OnboardingPage() {
   } = useSettingsStore()
 
   const username = user?.username ?? 'there'
+  // The one goal asked first (step 1). It is saved when onboarding finishes.
+  const [goal, setGoal] = useState<GoalDraft | null>(null)
+  const createGoal = useCreateGoal()
 
   const finish = () => {
+    if (goal) createGoal.mutate({ name: goal.name, targetAmount: goal.target, deadline: goal.deadline })
     void markOnboardingDone()
     history.push(defaultLandingPage)
   }
 
   const next = () => setStep(s => s + 1)
   const back = () => setStep(s => s - 1)
+  const start = () => {
+    // Most people here are in the Philippines; start them on pesos so the goal reads right.
+    try {
+      if (currency === 'USD' && Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Manila') setCurrency('PHP')
+    } catch {
+      /* keep the default */
+    }
+    next()
+  }
 
-  const progress = step >= 1 && step <= TOTAL_STEPS ? (step / TOTAL_STEPS) * 100 : 0
+  // Steps 2 to 6 are the numbered setup steps; the goal question comes before them.
+  const progress = step >= 2 && step <= TOTAL_STEPS + 1 ? ((step - 1) / TOTAL_STEPS) * 100 : 0
 
   // Shared card styles
   const card = 'relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-4 cursor-pointer transition-all duration-200 select-none active:scale-[0.97] text-center'
@@ -118,7 +134,7 @@ export function OnboardingPage() {
               <p className="text-gray-400 dark:text-zinc-600 mt-2 text-xs">Takes less than a minute</p>
 
               <button
-                onClick={next}
+                onClick={start}
                 className="mt-9 w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-4 font-semibold text-[16px] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg"
               >
                 Get started
@@ -132,8 +148,21 @@ export function OnboardingPage() {
             </div>
           )}
 
-          {/* ═══════════════════════ STEP 1 – CURRENCY ═════════════════ */}
+          {/* ═══════════════════════ GOAL FIRST ═══════════════════════ */}
           {step === 1 && (
+            <GoalStep
+              currency={currency}
+              initial={goal}
+              onBack={back}
+              onNext={(draft) => {
+                setGoal(draft)
+                next()
+              }}
+            />
+          )}
+
+          {/* ═══════════════════════ STEP 1 – CURRENCY ═════════════════ */}
+          {step === 2 && (
             <div className="animate-fade-in">
               <StepHeader
                 step={1} total={TOTAL_STEPS}
@@ -163,7 +192,7 @@ export function OnboardingPage() {
           )}
 
           {/* ═══════════════════════ STEP 2 – APPEARANCE ═══════════════ */}
-          {step === 2 && (
+          {step === 3 && (
             <div className="animate-fade-in">
               <StepHeader
                 step={2} total={TOTAL_STEPS}
@@ -223,7 +252,7 @@ export function OnboardingPage() {
           )}
 
           {/* ═══════════════════════ STEP 3 – HOME SCREEN ══════════════ */}
-          {step === 3 && (
+          {step === 4 && (
             <div className="animate-fade-in">
               <StepHeader
                 step={3} total={TOTAL_STEPS}
@@ -261,7 +290,7 @@ export function OnboardingPage() {
           )}
 
           {/* ═══════════════════════ STEP 4 – PREFERENCES ══════════════ */}
-          {step === 4 && (
+          {step === 5 && (
             <div className="animate-fade-in">
               <StepHeader
                 step={4} total={TOTAL_STEPS}
@@ -324,7 +353,7 @@ export function OnboardingPage() {
           )}
 
           {/* ═══════════════════════ STEP 5 – ALL SET ══════════════════ */}
-          {step === 5 && (
+          {step === 6 && (
             <div className="flex flex-col items-center text-center animate-fade-in">
               {/* Animated success ring */}
               <div className="relative mb-7">
@@ -358,6 +387,12 @@ export function OnboardingPage() {
                 />
                 <SummaryRow label="Dates"   value={dateFormat} />
                 <SummaryRow label="Privacy" value={hideAmountsOnOpen ? 'Balances hidden' : 'Balances visible'} />
+                {goal && (
+                  <>
+                    <SummaryDivider />
+                    <SummaryRow label="First goal" value={`${goal.name} by ${new Date(goal.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`} />
+                  </>
+                )}
               </div>
 
               <button

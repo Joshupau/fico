@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { format, differenceInCalendarDays } from 'date-fns'
-import { Archive, ArrowDownLeft, ArrowUpRight, MoreHorizontal, Pencil } from 'lucide-react'
+import { Archive, ArrowDownLeft, ArrowUpRight, BellRing, MoreHorizontal, Pencil } from 'lucide-react'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import type { Obligation } from '@/types/obligation'
+import { MilestoneJourney, TickedProgress } from '@/components/page/milestones/journey'
+import { UtangReminderSheet } from '@/components/page/debts/utang-reminder-sheet'
 
 interface ObligationCardProps {
   obligation: Obligation
@@ -18,6 +20,7 @@ interface ObligationCardProps {
 export function ObligationCard({ obligation, hideAmounts, onPay, onEdit, onArchive }: ObligationCardProps) {
   const { currency } = useSettingsStore()
   const [menu, setMenu] = useState(false)
+  const [remind, setRemind] = useState(false)
   const isDebt = obligation.direction === 'debt'
   const money = (value: number) => formatMoney(value, obligation.currency || currency, hideAmounts)
 
@@ -87,9 +90,7 @@ export function ObligationCard({ obligation, hideAmounts, onPay, onEdit, onArchi
         <p className="shrink-0 pb-1 text-xs tabular-nums text-muted-foreground">of {money(total)}</p>
       </div>
 
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Paid so far">
-        <div className={`h-full rounded-full transition-all ${settled ? 'bg-success' : 'bg-primary'}`} style={{ width: `${pct}%` }} />
-      </div>
+      <TickedProgress pct={pct} done={settled} label="Paid so far" />
 
       <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
@@ -99,15 +100,30 @@ export function ObligationCard({ obligation, hideAmounts, onPay, onEdit, onArchi
         {dueText && <span className={overdue ? 'font-semibold text-destructive' : ''}>{dueText}</span>}
       </div>
 
+      <MilestoneJourney kind={isDebt ? 'debt' : 'lending'} subjectId={obligation.id} startedAt={obligation.startDate} />
+
       {!settled && (
-        <button
-          type="button"
-          onClick={() => onPay(obligation)}
-          className="mt-4 w-full rounded-full bg-primary/10 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
-        >
-          {isDebt ? 'Record payment' : 'Record repayment'}
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => onPay(obligation)}
+            className="flex-1 rounded-full bg-primary/10 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+          >
+            {isDebt ? 'Record payment' : 'Record repayment'}
+          </button>
+          {!isDebt && remaining > 0 && (
+            <button
+              type="button"
+              onClick={() => setRemind(true)}
+              className="flex items-center gap-1.5 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/50"
+            >
+              <BellRing className="h-4 w-4" />
+              Remind
+            </button>
+          )}
+        </div>
       )}
+      {!isDebt && remind && <UtangReminderSheet obligation={obligation} open={remind} onOpenChange={setRemind} />}
     </article>
   )
 }

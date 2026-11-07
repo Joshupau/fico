@@ -5,10 +5,14 @@ import { useSettingsStore } from '@/store/settings-store'
 import type { Investment } from '@/types/investment'
 
 export type LiveHolding = {
-  /** Quantity times the current price, in the app currency. */
+  /** Quantity times the price, in the app currency. */
   value: number
   price: number
   change24h: number | null
+  /** When the price was fetched (ms). */
+  at: number
+  /** The live lookup failed, so this is the last known price. */
+  stale: boolean
 }
 
 /** Live value of every active crypto holding that has a coin and a quantity. */
@@ -31,20 +35,29 @@ export function useLiveHoldings(investments: Investment[]) {
 
   const liveById = useMemo(() => {
     const result: Record<string, LiveHolding> = {}
-    const prices = query.data?.prices
-    if (!prices) return result
+    const prices = query.data?.prices ?? {}
+    // The server's price job runs every 30 minutes; older than two hours means it has stopped.
+    const checkedAt = query.dataUpdatedAt
     for (const holding of holdings) {
+      const quantity = Number(holding.quantity)
       const coin = prices[holding.coinId as string]
-      if (coin) result[holding.id] = { value: Number(holding.quantity) * coin.price, price: coin.price, change24h: coin.change24h }
+      // The server's last saved price, if it is newer than anything this device knows.
+      const savedAt = holding.priceUpdatedAt ? Date.parse(holding.priceUpdatedAt) : 0
+      const saved = Number(holding.lastPrice) > 0 && savedAt > 0 ? { price: Number(holding.lastPrice), at: savedAt } : null
+      if (coin && (!saved || coin.at >= saved.at)) {
+        result[holding.id] = { value: quantity * coin.price, price: coin.price, change24h: coin.change24h, at: coin.at, stale: coin.stale }
+      } else if (saved) {
+        result[holding.id] = { value: quantity * saved.price, price: saved.price, change24h: null, at: saved.at, stale: !checkedAt || checkedAt - saved.at > 2 * 3_600_000 }
+      }
     }
     return result
-  }, [holdings, query.data])
+  }, [holdings, query.data, query.dataUpdatedAt])
 
   return {
     holdings,
     liveById,
     loading: query.isLoading && ids.length > 0,
-    stale: !!query.data?.stale,
+    stale: Object.values(liveById).some((h) => h.stale),
     failed: query.isError,
     fetchedAt: query.data?.fetchedAt ?? null,
     refetch: query.refetch,

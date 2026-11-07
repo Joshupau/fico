@@ -9,7 +9,7 @@ import { matchInstitution } from '@/lib/ph-institutions'
 import type { InvestmentAction } from '@/components/page/investments/investment-action-sheet'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
-import { coinLabel, coinLogoSrc } from '@/utils/crypto-prices'
+import { coinLabel, coinLogoSrc, formatCoinPrice, formatCoinQuantity, priceAsOf } from '@/utils/crypto-prices'
 import type { LiveHolding } from '@/queries/crypto/prices'
 import type { Investment } from '@/types/investment'
 
@@ -82,7 +82,7 @@ export function InvestmentCard({ investment, live, hideAmounts, onAction, onEdit
       <div className="mt-4 flex items-end justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {sold ? 'Sold for' : live ? 'Worth now · live' : 'Worth now'}
+            {sold ? 'Sold for' : live ? (live.stale ? `Worth now · ${priceAsOf(live.at)}` : 'Worth now · live') : 'Worth now'}
           </p>
           <p className="font-heading text-2xl font-bold tabular-nums text-foreground">{money(value)}</p>
         </div>
@@ -94,7 +94,8 @@ export function InvestmentCard({ investment, live, hideAmounts, onAction, onEdit
 
       {live && investment.coinId && (
         <p className="mt-1 text-xs text-muted-foreground">
-          {Number(investment.quantity)} {coinLabel(investment.coinId, investment.coinSymbol)} at {money(live.price)}
+          {formatCoinQuantity(Number(investment.quantity))} {coinLabel(investment.coinId, investment.coinSymbol)} at{' '}
+          {formatCoinPrice(live.price, investment.currency || currency, hideAmounts)}
           {live.change24h != null && (
             <span className={live.change24h >= 0 ? 'text-success' : 'text-destructive'}>
               {' '}

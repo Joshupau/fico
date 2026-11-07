@@ -32,4 +32,6 @@ export interface SettingsState {
   safeToSpendFloor: number
   /** Per wallet id: whether it counts toward safe to spend, and the minimum to leave in it. */
   safeToSpendWallets: Record<string, { include?: boolean; min?: number }>
+  /** Insights warns when one investment is more than this share (%) of the portfolio. */
+  concentrationLimit?: number
 }

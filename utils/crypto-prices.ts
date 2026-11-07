@@ -1,3 +1,5 @@
+import { formatMoney } from '@/utils/formatter'
+
 // Live crypto prices from CoinGecko's public API. One request covers every coin you hold, and the
 // answer is kept for a minute, so opening screens repeatedly does not use up the free allowance.
 // An optional free "demo" key (NEXT_PUBLIC_COINGECKO_KEY) raises the limit.
@@ -48,20 +50,23 @@ export const COINS: Coin[] = [
   { id: 'injective-protocol', symbol: 'INJ', name: 'Injective' },
 ]
 
-export type CoinPrice = { price: number; change24h: number | null }
+/** A coin's price, and when it was fetched (ms). `stale` means the live lookup failed and this is the last known one. */
+export type CoinPrice = { price: number; change24h: number | null; at: number; stale: boolean }
 export type CoinPrices = { prices: Record<string, CoinPrice>; fetchedAt: number; stale: boolean }
 
-const CACHE_KEY = 'fico:coin-prices'
+// Each coin is remembered on its own ("php:bitcoin"), so adding a coin or a failed lookup never
+// throws away the prices already known for the others.
+const CACHE_KEY = 'fico:coin-prices:v2'
 const FRESH_MS = 60_000
 
-type Cached = { key: string; at: number; prices: Record<string, CoinPrice> }
+type Cached = Record<string, { price: number; change24h: number | null; at: number }>
 
-const readCache = (): Cached | null => {
+const readCache = (): Cached => {
   try {
     const raw = window.localStorage.getItem(CACHE_KEY)
-    return raw ? (JSON.parse(raw) as Cached) : null
+    return raw ? (JSON.parse(raw) as Cached) : {}
   } catch {
-    return null
+    return {}
   }
 }
 
@@ -85,39 +90,69 @@ export const coinLogoSrc = (id?: string | null, symbol?: string | null) => {
   return COIN_LOGOS.has(ticker) ? `/coins/${ticker.toLowerCase()}.svg` : undefined
 }
 
-/** Prices for the given CoinGecko ids in one currency. Falls back to the last known prices if the request fails. */
+/** Shows a coin price with enough digits to mean something: ₱3,512,000.00, ₱12.34, ₱0.001234. */
+export function formatCoinPrice(price: number, currency: string, hidden = false) {
+  if (hidden || !(price > 0) || price >= 1) return formatMoney(price, currency, hidden)
+  const digits = Math.min(10, Math.max(2, 1 - Math.floor(Math.log10(price)) + 3))
+  const whole = formatMoney(0, currency).replace(/[\d.,]+$/, '')
+  return `${whole}${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: digits })}`
+}
+
+/** "as of 3:05 PM" today, "as of Nov 6" before. */
+export function priceAsOf(at: number) {
+  const d = new Date(at)
+  const today = new Date().toDateString() === d.toDateString()
+  return `as of ${today ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+}
+
+/** A coin count without exponent notation: 0.00002158 rather than 2.158e-5. */
+export const formatCoinQuantity = (quantity: number) =>
+  Number(quantity).toLocaleString('en-US', { maximumFractionDigits: 10 })
+
+/**
+ * Prices for the given CoinGecko ids in one currency. Coins fetched in the last minute are not asked
+ * for again. If the request fails, or leaves a coin out, that coin keeps its last known price and is
+ * marked stale with the time it was fetched.
+ */
 export async function fetchCoinPrices(ids: string[], currency: string): Promise<CoinPrices> {
   const vs = currency.toLowerCase()
   const unique = [...new Set(ids)].sort()
-  const key = `${vs}:${unique.join(',')}`
-  const cached = readCache()
+  const cache = readCache()
+  const now = Date.now()
+  const want = unique.filter((id) => !(now - (cache[`${vs}:${id}`]?.at ?? 0) < FRESH_MS))
 
-  if (cached && cached.key === key && Date.now() - cached.at < FRESH_MS) {
-    return { prices: cached.prices, fetchedAt: cached.at, stale: false }
-  }
-
-  try {
-    const params = new URLSearchParams({ ids: unique.join(','), vs_currencies: vs, include_24hr_change: 'true' })
-    const apiKey = process.env.NEXT_PUBLIC_COINGECKO_KEY
-    if (apiKey) params.set('x_cg_demo_api_key', apiKey)
-
-    const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?${params.toString()}`)
-    if (!response.ok) throw new Error(`CoinGecko ${response.status}`)
-    const json = (await response.json()) as Record<string, Record<string, number>>
-
-    const prices: Record<string, CoinPrice> = {}
-    for (const id of unique) {
-      const row = json[id]
-      if (row && typeof row[vs] === 'number') {
-        const change = row[`${vs}_24h_change`]
-        prices[id] = { price: row[vs], change24h: typeof change === 'number' ? change : null }
+  let failure: unknown = null
+  if (want.length) {
+    try {
+      const params = new URLSearchParams({ ids: want.join(','), vs_currencies: vs, include_24hr_change: 'true' })
+      const apiKey = process.env.NEXT_PUBLIC_COINGECKO_KEY
+      if (apiKey) params.set('x_cg_demo_api_key', apiKey)
+      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?${params.toString()}`)
+      if (!response.ok) throw new Error(`CoinGecko ${response.status}`)
+      const json = (await response.json()) as Record<string, Record<string, number>>
+      const at = Date.now()
+      for (const id of want) {
+        const row = json[id]
+        if (row && typeof row[vs] === 'number' && row[vs] > 0) {
+          const change = row[`${vs}_24h_change`]
+          cache[`${vs}:${id}`] = { price: row[vs], change24h: typeof change === 'number' ? change : null, at }
+        }
       }
+      writeCache(cache)
+    } catch (error) {
+      failure = error
     }
-    const at = Date.now()
-    writeCache({ key, at, prices })
-    return { prices, fetchedAt: at, stale: false }
-  } catch (error) {
-    if (cached && cached.key === key) return { prices: cached.prices, fetchedAt: cached.at, stale: true }
-    throw error
   }
+
+  const prices: Record<string, CoinPrice> = {}
+  let oldest = Date.now()
+  for (const id of unique) {
+    const hit = cache[`${vs}:${id}`]
+    if (!hit) continue
+    const stale = Date.now() - hit.at >= FRESH_MS * 2
+    prices[id] = { ...hit, stale }
+    oldest = Math.min(oldest, hit.at)
+  }
+  if (failure && !Object.keys(prices).length) throw failure
+  return { prices, fetchedAt: oldest, stale: Object.values(prices).some((p) => p.stale) }
 }

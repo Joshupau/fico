@@ -7,7 +7,9 @@ import { Field, FormSheet, fieldClass, MoneyField } from '@/components/ui/form-s
 import { useRecordObligationPayment } from '@/queries/user/obligation/obligations'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
-import { celebrate } from '@/store/celebration-store'
+import { useCelebrateMilestones } from '@/queries/user/milestone/milestones'
+import { useMilestoneMoney } from '@/hooks/use-milestones'
+import { debtMilestones, type DebtState } from '@/utils/milestones'
 import type { Obligation } from '@/types/obligation'
 
 interface RecordPaymentSheetProps {
@@ -18,6 +20,8 @@ interface RecordPaymentSheetProps {
 export function RecordPaymentSheet({ obligation, onClose }: RecordPaymentSheetProps) {
   const { currency } = useSettingsStore()
   const { mutate: record, isPending } = useRecordObligationPayment()
+  const celebrateFound = useCelebrateMilestones()
+  const money = useMilestoneMoney()
   const [amount, setAmount] = useState('')
   const [walletId, setWalletId] = useState('')
   const [date, setDate] = useState('')
@@ -50,19 +54,23 @@ export function RecordPaymentSheet({ obligation, onClose }: RecordPaymentSheetPr
       },
       {
         onSuccess: () => {
-          // Paying off the last of it is a moment worth marking; part payments stay a quiet toast.
-          if (amountNum >= obligation.remainingBalance - 0.005) {
-            celebrate({
-              kind: isDebt ? 'confetti' : 'coins',
-              title: isDebt ? 'Debt cleared!' : 'Paid back in full!',
-              message: isDebt
-                ? `${obligation.name} is fully paid off. One less thing to worry about.`
-                : `${obligation.counterparty} has paid you back for ${obligation.name}.`,
-              highlight: formatMoney(amountNum, obligation.currency || currency, false),
-            })
-          } else {
-            toast.success(isDebt ? 'Payment recorded' : 'Repayment recorded')
+          // Milestones: cleared (confetti), halfway (a card), each installment or a round number (a check).
+          const months = { weekly: 12 / 52, monthly: 1, yearly: 12 }[obligation.installmentFrequency ?? 'monthly'] ?? 1
+          const before: DebtState = {
+            id: obligation.id,
+            name: obligation.name,
+            direction: obligation.direction,
+            principal: Number(obligation.totalWithInterest ?? obligation.principalAmount) || 0,
+            remaining: obligation.remainingBalance,
+            paidInstallments: obligation.paidInstallments,
+            totalInstallments: obligation.totalInstallments,
+            installmentAmount: obligation.installmentAmount,
+            monthsPerInstallment: months,
           }
+          const after = { ...before, remaining: Math.max(0, before.remaining - amountNum), paidInstallments: obligation.isInstallment ? obligation.paidInstallments + 1 : obligation.paidInstallments }
+          void celebrateFound(debtMilestones(before, after, { money })).then((shown) => {
+            if (shown.length === 0) toast.success(isDebt ? 'Payment recorded' : 'Repayment recorded')
+          })
           onClose()
         },
       }

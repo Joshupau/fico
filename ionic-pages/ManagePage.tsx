@@ -2,7 +2,7 @@
 
 import { IonPage, IonContent } from '@ionic/react'
 import { Link } from 'react-router-dom'
-import { BarChart3, CalendarClock, ChevronRight, CreditCard, Gift, HandCoins, LineChart, PieChart, PiggyBank, Settings as SettingsIcon, ShieldCheck, Tag, TrendingUp, type LucideIcon } from 'lucide-react'
+import { BarChart3, CalendarClock, ChevronRight, CreditCard, Gift, HandCoins, LineChart, PieChart, PiggyBank, Receipt, Settings as SettingsIcon, ShieldCheck, Tag, TrendingUp, Wand2, type LucideIcon } from 'lucide-react'
 import { PeacockMascot } from '@/components/peacock-mascot'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { useBillSummary } from '@/queries/user/bill/bills'
@@ -34,14 +34,16 @@ const MANAGE_GROUPS: ManageGroup[] = [
       { label: 'Wishlist', href: '/wishlist', icon: Gift, description: 'Things you want to buy', tone: 'bg-primary/10 text-primary' },
       { label: 'Debts & loans', href: '/debts', icon: HandCoins, description: 'Borrowed and lent', tone: 'bg-destructive/10 text-destructive' },
       { label: 'Investments', href: '/investments', icon: TrendingUp, description: 'How your money grows', tone: 'bg-success/15 text-success' },
+      { label: 'Pay & taxes', href: '/pay', icon: Receipt, description: '13th month, take-home, leave, freelancer tax', tone: 'bg-warning/15 text-warning' },
     ],
   },
   {
     title: 'Understand',
     items: [
-      { label: 'Statistics', href: '/statistics', icon: BarChart3, description: 'Charts and trends', tone: 'bg-accent/15 text-accent' },
+      { label: 'Insights', href: '/statistics', icon: BarChart3, description: 'Spending, money, bills and debts', tone: 'bg-accent/15 text-accent' },
       { label: 'Forecast', href: '/forecast', icon: LineChart, description: 'Future cash and past balances', tone: 'bg-primary/10 text-primary' },
       { label: 'Categories', href: '/categories', icon: Tag, description: 'Organize your spending', tone: 'bg-secondary text-foreground' },
+      { label: 'Rules', href: '/rules', icon: Wand2, description: 'Sort transactions automatically', tone: 'bg-primary/10 text-primary' },
     ],
   },
   {

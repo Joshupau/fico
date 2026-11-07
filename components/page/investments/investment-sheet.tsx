@@ -9,6 +9,7 @@ import { useCreateInvestment, useUpdateInvestment } from '@/queries/user/investm
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import { celebrate } from '@/store/celebration-store'
+import { useInvestMilestones } from '@/hooks/use-milestones'
 import { COINS, coinLabel } from '@/utils/crypto-prices'
 import type { Investment, InvestmentType } from '@/types/investment'
 
@@ -23,7 +24,8 @@ const today = () => new Date().toISOString().slice(0, 10)
 const toDate = (value?: string) => (value ? String(value).slice(0, 10) : '')
 
 export function InvestmentSheet({ open, onClose, investment }: InvestmentSheetProps) {
-  const { currency } = useSettingsStore()
+  const { currency, hideAmountsOnOpen } = useSettingsStore()
+  const checkInvest = useInvestMilestones()
   const { mutate: create, isPending: creating } = useCreateInvestment()
   const { mutate: update, isPending: updating } = useUpdateInvestment()
   const isEdit = !!investment
@@ -113,13 +115,19 @@ export function InvestmentSheet({ open, onClose, investment }: InvestmentSheetPr
         ...(isCrypto && coinId ? { coinId, coinSymbol: coinLabel(coinId), quantity: coinQty } : {}),
       },
       {
-        onSuccess: () =>
-          finish('Investment added', {
-            kind: 'coins',
-            title: 'Investment added',
-            message: `${name.trim()} is now part of your portfolio.`,
-            highlight: formatMoney(principal, currency, false),
-          }),
+        onSuccess: () => {
+          onClose()
+          // A first investment or a round total invested is a milestone; otherwise the usual card.
+          void checkInvest((before) => [...before, { id: 'new', name: name.trim(), principal, value: principal, returns: 0 }]).then((shown) => {
+            if (shown.length === 0)
+              celebrate({
+                kind: 'coins',
+                title: 'Investment added',
+                message: `${name.trim()} is now part of your portfolio.`,
+                highlight: formatMoney(principal, currency, hideAmountsOnOpen),
+              })
+          })
+        },
       }
     )
   }

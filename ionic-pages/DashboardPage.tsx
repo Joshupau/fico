@@ -15,10 +15,11 @@ import { useBillCalendar } from '@/queries/user/bill/bills'
 import { useListObligations } from '@/queries/user/obligation/obligations'
 import { useListInvestments } from '@/queries/user/investment/investments'
 import { useLiveHoldings } from '@/queries/crypto/prices'
-import { coinLabel } from '@/utils/crypto-prices'
+import { coinLabel, formatCoinQuantity, priceAsOf } from '@/utils/crypto-prices'
 import type { Investment } from '@/types/investment'
 import { resolveOrder, useHomeWidgets, type WidgetId } from '@/store/home-widgets-store'
 import { CustomizeWidgetsSheet } from '@/components/page/home/customize-widgets-sheet'
+import { PaydayCard } from '@/components/page/home/payday-card'
 import { getCategoryTotal, normalizeCategoryData } from '@/components/page/statistics/statistics-utils'
 import { formatMoney } from '@/utils/formatter'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,7 +32,7 @@ import { TriageInbox, useUncategorized } from '@/components/page/transaction/tri
 const SHORTCUTS: { label: string; hint: string; href: string; icon: LucideIcon }[] = [
   { label: 'Budgets', hint: 'Set spending limits', href: '/budgets', icon: PieChart },
   { label: 'Bills', hint: 'See what is due', href: '/bills', icon: CreditCard },
-  { label: 'Statistics', hint: 'Charts and trends', href: '/statistics', icon: BarChart3 },
+  { label: 'Insights', hint: 'Charts and trends', href: '/statistics', icon: BarChart3 },
   { label: 'Categories', hint: 'Organize spending', href: '/categories', icon: Tag },
 ]
 
@@ -253,7 +254,7 @@ export default function DashboardPage() {
     ),
     whereItWent: (
                     <Card className="order-4 lg:order-none">
-                <CardHeader title={`Where it went ${periodPhrase}`} to="/statistics" linkLabel="Details" />
+                <CardHeader title={`Where it went ${periodPhrase}`} to="/statistics#spending" linkLabel="Details" />
                 {categoriesLoading ? (
                   <Skeleton className="h-24 rounded-2xl" />
                 ) : categories.length > 0 ? (
@@ -369,8 +370,9 @@ export default function DashboardPage() {
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-foreground">{h.name}</span>
                         <span className="block text-xs text-muted-foreground">
-                          {Number(h.quantity)} {coinLabel(h.coinId, h.coinSymbol)}
-                          {live?.change24h != null && (
+                          {formatCoinQuantity(Number(h.quantity))} {coinLabel(h.coinId, h.coinSymbol)}
+                          {live?.stale && <> · {priceAsOf(live.at)}</>}
+                          {live?.change24h != null && !live.stale && (
                             <span className={live.change24h >= 0 ? 'text-success' : 'text-destructive'}>
                               {' '}
                               · {live.change24h >= 0 ? '+' : ''}
@@ -464,6 +466,8 @@ export default function DashboardPage() {
                   ))}
                 </nav>
             </div>
+
+            {backendHasBills && <PaydayCard money={money} safe={safeResult} />}
 
             <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:items-start">
               {visibleWidgets.map((id) => (
