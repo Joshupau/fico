@@ -4,6 +4,7 @@ import { axiosInstance, axiosInstanceFormData } from "@/utils/axios-instance";
 import { supabase } from "@/utils/supabase-client";
 import { toCamelCase } from "@/utils/case-transform";
 import { parseImportCsv } from "@/utils/import-csv";
+import { ruleFromRow } from "@/queries/user/rule/rules";
 import { handleApiError } from "@/utils/error-handler";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -346,7 +347,10 @@ const importTransactions = async (data: ImportTransactionsData) => {
   if (isSupabase()) {
     const preview = data.preview === true || data.preview === 'true';
     const { data: categories } = await supabase.from('categories').select('id, name');
-    const { totalRows, valid, skipped } = parseImportCsv(await data.file.text(), categories ?? [], data.categoryId);
+    // The user's categorization rules fill rows the file leaves without a category (none if the table isn't there yet).
+    const { data: ruleRows } = await supabase.from('rules').select('*');
+    const rules = (ruleRows ?? []).map(ruleFromRow);
+    const { totalRows, valid, skipped } = parseImportCsv(await data.file.text(), categories ?? [], data.categoryId, rules);
 
     if (preview) {
       return {
