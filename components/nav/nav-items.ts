@@ -28,7 +28,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/debts': 'Debts & loans',
   '/investments': 'Investments',
   '/categories': 'Categories',
-  '/statistics': 'Statistics',
+  '/statistics': 'Insights',
   '/settings': 'Settings',
   '/profile': 'Profile',
 }

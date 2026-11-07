@@ -39,7 +39,7 @@ const MANAGE_GROUPS: ManageGroup[] = [
   {
     title: 'Understand',
     items: [
-      { label: 'Statistics', href: '/statistics', icon: BarChart3, description: 'Charts and trends', tone: 'bg-accent/15 text-accent' },
+      { label: 'Insights', href: '/statistics', icon: BarChart3, description: 'Spending, money, bills and debts', tone: 'bg-accent/15 text-accent' },
       { label: 'Forecast', href: '/forecast', icon: LineChart, description: 'Future cash and past balances', tone: 'bg-primary/10 text-primary' },
       { label: 'Categories', href: '/categories', icon: Tag, description: 'Organize your spending', tone: 'bg-secondary text-foreground' },
     ],

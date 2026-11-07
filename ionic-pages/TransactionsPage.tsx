@@ -264,7 +264,7 @@ export function TransactionsPage() {
             </div>
           </div>
 
-          <div className="mt-5">
+          <div className="mt-2">
             <TransactionStats stats={stats} isLoading={summaryLoading} periodPhrase={PERIOD_PHRASE[filters.dateRange ?? 'month']} />
           </div>
 
