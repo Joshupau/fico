@@ -15,7 +15,7 @@ import { useBillCalendar } from '@/queries/user/bill/bills'
 import { useListObligations } from '@/queries/user/obligation/obligations'
 import { useListInvestments } from '@/queries/user/investment/investments'
 import { useLiveHoldings } from '@/queries/crypto/prices'
-import { coinLabel } from '@/utils/crypto-prices'
+import { coinLabel, formatCoinQuantity, priceAsOf } from '@/utils/crypto-prices'
 import type { Investment } from '@/types/investment'
 import { resolveOrder, useHomeWidgets, type WidgetId } from '@/store/home-widgets-store'
 import { CustomizeWidgetsSheet } from '@/components/page/home/customize-widgets-sheet'
@@ -369,8 +369,9 @@ export default function DashboardPage() {
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-foreground">{h.name}</span>
                         <span className="block text-xs text-muted-foreground">
-                          {Number(h.quantity)} {coinLabel(h.coinId, h.coinSymbol)}
-                          {live?.change24h != null && (
+                          {formatCoinQuantity(Number(h.quantity))} {coinLabel(h.coinId, h.coinSymbol)}
+                          {live?.stale && <> · {priceAsOf(live.at)}</>}
+                          {live?.change24h != null && !live.stale && (
                             <span className={live.change24h >= 0 ? 'text-success' : 'text-destructive'}>
                               {' '}
                               · {live.change24h >= 0 ? '+' : ''}
