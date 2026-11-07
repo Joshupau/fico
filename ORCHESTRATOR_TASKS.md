@@ -180,3 +180,51 @@ Files: `utils/crypto-prices.ts`, `queries/crypto/prices.ts`, `fico-api/mcp/src/c
 ### B2. Clean up `fico-api` leftovers
 Files: `fico-api/initialization/data/quests.json`, `packages.json`, `models/Globalpass.ts`, `models/Staffusers.ts` and their controllers, services, routes and validators
 - Confirm nothing references them, then remove. List anything still referenced in the pull request instead of removing it.
+
+---
+
+## Phase E: ideas from other open-source finance apps
+
+Source: a comparison of Actual Budget, Firefly III, Maybe (and its fork Sure), Ghostfolio, ezBookkeeping and Cashew. Build these after Phases A and B. E1 and E2 come first because other tasks reuse them.
+
+### E1. Categorization rules
+Files: new `utils/rules.ts`, `scripts/test-rules.mts`, migration for a `rules` table (id, owner_id, position, match_field, match_op, match_value, set_category_id, set_tags, set_wallet_id, enabled), `lib/local/sync.ts` (`SYNCED_TABLES`), `lib/local/schema.generated.ts`, a rules screen under Manage
+- Rules like "description contains 'jollibee' then category Food". Run them in the quick-add parser, receipt scan, CSV import, notification capture (R1) and the swipe inbox (F4).
+- Offer "Create a rule from this" after the user fixes a category.
+- Done when: rules apply in the order set, a disabled rule is skipped, and a test covers conflicts between two rules.
+- Human check: the migration is applied to the live project.
+
+### E2. Undo and redo
+Files: new `store/undo-store.ts`, mutation hooks in `queries/user/transaction/*`, `queries/user/wallet/*`
+- A toast with Undo after deleting or editing a transaction, transfer or payment, which reverses the change through the same mutation path so balances and the sync queue stay correct. Add an undo button in the Activity page header for the last few changes.
+- Done when: undoing a delete restores the transaction and wallet balance, and the sync queue does not send both a delete and a re-create.
+
+### E3. Portfolio returns and risk view
+Files: `ionic-pages/InvestmentsPage.tsx`, `queries/user/investment/*`, new `utils/portfolio.ts`, `scripts/test-portfolio.mts`
+- Return over Today, 1W, 1M, YTD, 1Y and All, using `investment_value_snapshots` and recorded contributions, with dividends or returns included.
+- A simple risk view: share per holding, per asset type and per currency, with a warning when one holding is a large part of the total.
+- Depends on B1 (crypto prices).
+- Done when: returns match a hand-checked example in the tests and the risk view lists holdings above a configurable share.
+
+### E4. Home-screen widgets
+Files: `android/` widget code, `store/home-widgets-store.ts`
+- Android widgets for safe-to-spend (F2), a chosen budget's remaining amount, and a chosen goal's progress, each configurable on its own. Show amounts hidden if `hideAmountsOnOpen` is on.
+- Human check: needs a real Android device.
+
+### E5. App lock
+Files: `components/page/settings/settings-content.tsx`, new `components/app-lock.tsx`, `store/settings-store.ts`
+- Optional PIN or biometric lock when the app opens or returns from the background, with a timeout setting. Verify first whether any lock already exists before adding one.
+- Done when: the lock covers the whole app, including the hidden-amounts screen, and the PIN is never stored in plain text.
+
+### E6. More import formats and a goal-style savings jar
+Files: `utils/import-csv.ts`, `scripts/test-import-csv.mts`, `components/page/goals/*`
+- Import: support OFX and QIF files and a Firefly III or Actual export, with column mapping and duplicate detection against existing transactions.
+- Goals: let a goal be funded from a wallet or a share of each income, like Firefly III's piggy banks, with automatic contributions on payday. Tie this to the milestones in Phase C.
+- Done when: re-importing the same file adds nothing, and tests cover each format.
+
+### E7. Reports builder (later)
+Files: new report definitions in Insights (I1)
+- Let the user save a custom report: choose period, grouping (category, wallet, tag), and chart type. Only start after I1 ships and people use Insights.
+
+## Updated order
+A (sync) first, then B (Insights), then E1 and E2. After that, C (milestones and interactivity) and E3 together, then D (retention) and the remaining E tasks.
