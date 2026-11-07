@@ -37,7 +37,7 @@ const isLocalBucketed = (params?: quickStatsTransactionParams) =>
 // Shared by any mutation that can move a wallet balance (create/update/delete
 // transaction) — without this, wallet balances and dashboard stats stay
 // stale in every screen except the one that happens to call its own refetch.
-const invalidateTransactionAndWalletQueries = (queryClient: ReturnType<typeof useQueryClient>) => {
+export const invalidateTransactionAndWalletQueries = (queryClient: ReturnType<typeof useQueryClient>) => {
   queryClient.invalidateQueries({ queryKey: ["wallets"] });
   queryClient.invalidateQueries({ queryKey: ["wallet"] });
   queryClient.invalidateQueries({ queryKey: ["wallet-total-balance"] });
@@ -58,7 +58,7 @@ const invalidateTransactionAndWalletQueries = (queryClient: ReturnType<typeof us
 
 // Create Transaction — balance mutation + optional bill linkage, so this
 // goes through the transactions_create RPC (layer (b)), not a direct insert.
-const createTransaction = async (data: CreateTransactionData & { createBillForFee?: boolean }) => {
+export const createTransaction = async (data: CreateTransactionData & { createBillForFee?: boolean }) => {
   if (isSupabase()) {
     const { data: row, error } = await supabase.rpc('transactions_create', {
       p_wallet_id: data.walletId,
@@ -160,7 +160,7 @@ export const useInfiniteTransactions = (params: Omit<ListTransactionsParams, 'pa
 // Update Transaction — any field, including amount, type, wallets and the "don't change wallet
 // balance" flag. transactions_update (fico-api 0061) moves wallets by the difference between the
 // old and new row, and not at all while the flag is off.
-const updateTransaction = async (data: UpdateTransactionData) => {
+export const updateTransaction = async (data: UpdateTransactionData) => {
   if (isSupabase()) {
     const { data: row, error } = await supabase.rpc('transactions_update', {
       p_id: data.id,
@@ -198,7 +198,7 @@ export const useUpdateTransaction = () => {
 };
 
 // Delete Transaction — reverses wallet balance math, must be atomic (RPC).
-const deleteTransaction = async (data: { id: string }) => {
+export const deleteTransaction = async (data: { id: string }) => {
   if (isSupabase()) {
     const { error } = await supabase.rpc('transactions_delete', { p_id: data.id });
     if (error) throw error;

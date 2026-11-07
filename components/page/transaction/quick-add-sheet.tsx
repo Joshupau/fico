@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Delete, Plus, TriangleAlert, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
-import { useCreateTransaction, useUpdateTransaction } from '@/queries/user/transaction/transaction'
+import { useCreateTransaction } from '@/queries/user/transaction/transaction'
+import { useTransactionUndo } from '@/queries/user/transaction/undo'
 import { useSafeToSpendInputs } from '@/hooks/use-safe-to-spend'
 import { applyTransaction, instantAnswer, safeToSpend, walletCounts } from '@/utils/safe-to-spend'
 import { useListWallets } from '@/queries/user/wallet/wallets'
@@ -83,8 +84,9 @@ export function QuickAddSheet({
   const { data: walletsResponse } = useListWallets()
   const { data: categoriesResponse } = useListCategories()
   const { mutate: createTransaction, isPending: isCreating } = useCreateTransaction()
-  const { mutate: updateTransaction, isPending: isUpdating } = useUpdateTransaction()
-  const isPending = isCreating || isUpdating
+  const { updateWithUndo } = useTransactionUndo()
+  const [saving, setSaving] = useState(false)
+  const isPending = isCreating || saving
   const { inputs: safeInputs } = useSafeToSpendInputs()
 
   const wallets = useMemo(
@@ -221,7 +223,7 @@ export function QuickAddSheet({
 
     const categoryName = visibleCategories.find((c) => String(c._id ?? c.id) === categoryId)?.name
     const description = note.trim() || (type === 'transfer' ? 'Transfer' : categoryName || (type === 'income' ? 'Income' : 'Expense'))
-    const finish = (message: string) => {
+    const finish = (message: string | null) => {
       if (!isEdit) {
         try {
           window.localStorage.setItem(LAST_WALLET_KEY, walletId)
@@ -229,7 +231,7 @@ export function QuickAddSheet({
           /* remembering the wallet is a convenience only */
         }
       }
-      toast.success(message)
+      if (message) toast.success(message)
       onClose()
       onSuccess?.()
     }
@@ -250,13 +252,15 @@ export function QuickAddSheet({
         toWalletId: type === 'transfer' ? toWalletId : undefined,
         affectsBalance: !keepBalance,
       }
-      updateTransaction(update, {
-        onSuccess: () => {
-          finish('Changes saved')
+      // Saved with Undo (and Redo) in the toast instead of a plain "Changes saved".
+      setSaving(true)
+      updateWithUndo(transaction, update)
+        .then(() => {
+          finish(null)
           maybeOfferRule(description, transaction.categoryId)
-        },
-        onError: (error) => console.error('Error updating transaction:', error),
-      })
+        })
+        .catch((error) => console.error('Error updating transaction:', error))
+        .finally(() => setSaving(false))
       return
     }
 
