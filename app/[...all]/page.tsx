@@ -18,6 +18,7 @@ export async function generateStaticParams() {
     { all: ['planned'] },
     { all: ['wishlist'] },
     { all: ['rules'] },
+    { all: ['pay'] },
     { all: ['investments'] },
     { all: ['categories'] },
     { all: ['settings'] },
