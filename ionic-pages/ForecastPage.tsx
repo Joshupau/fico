@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, History, RotateCcw, TrendingUp, TriangleAlert } from 'lucide-react'
 import { IonContent, IonPage } from '@ionic/react'
 import { useHistory } from 'react-router-dom'
-import { format, parseISO, subDays } from 'date-fns'
+import { addDays, format, parseISO, subDays } from 'date-fns'
+import toast from 'react-hot-toast'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,7 +15,7 @@ import { useActiveBudgets, useAllWallets, useOpenBills, useTransactionsAfter } f
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import { balancesAt, buildForecast, typicalFlow, type ForecastPlanned, type WalletSnapshot } from '@/utils/forecast'
-import { useListPlannedItems } from '@/queries/user/planned/planned-items'
+import { useListPlannedItems, useUpdatePlannedItem } from '@/queries/user/planned/planned-items'
 
 type Tab = 'forecast' | 'lookback'
 
@@ -98,7 +99,7 @@ function FutureView() {
   const [includeBudgets, setIncludeBudgets] = useState(true)
   // What-if values. They only change the forecast on screen; nothing is saved.
   const [dailySpend, setDailySpend] = useState<number | null>(null)
-  const [itemWhatIf, setItemWhatIf] = useState<Record<string, { skip?: boolean; amount?: number }>>({})
+  const [itemWhatIf, setItemWhatIf] = useState<Record<string, { skip?: boolean; amount?: number; date?: string }>>({})
   const { data: plannedItems } = useListPlannedItems()
 
   const windowStart = useMemo(() => subDays(new Date(), TYPICAL_WINDOW_DAYS).toISOString(), [])
@@ -130,7 +131,7 @@ function FutureView() {
     () =>
       (plannedItems ?? [])
         .filter((item) => !itemWhatIf[item.id]?.skip)
-        .map((item) => ({ ...item, amount: itemWhatIf[item.id]?.amount })),
+        .map((item) => ({ ...item, amount: itemWhatIf[item.id]?.amount, date: itemWhatIf[item.id]?.date ?? item.date })),
     [plannedItems, itemWhatIf]
   )
 
@@ -149,6 +150,35 @@ function FutureView() {
   }, [wallets, cash, bills, budgets, usual, days, includeTypical, includeBudgets, dailySpend, planned])
 
   const changed = dailySpend !== null || Object.keys(itemWhatIf).length > 0
+  // Planned items moved or resized on this screen; "Save to plan" writes them back.
+  const savable = (plannedItems ?? []).filter((item) => {
+    const w = itemWhatIf[item.id]
+    return !!w && !w.skip && ((w.date !== undefined && w.date !== item.date) || w.amount !== undefined)
+  })
+  const { mutateAsync: savePlanned, isPending: savingPlan } = useUpdatePlannedItem()
+  const saveToPlan = async () => {
+    try {
+      for (const item of savable) {
+        const w = itemWhatIf[item.id]
+        await savePlanned({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          status: item.status,
+          categoryId: item.categoryId ?? null,
+          notes: item.notes ?? null,
+          date: w.date ?? item.date,
+          // A slid amount becomes the plan's figure; untouched ranges stay as they were.
+          amountLow: w.amount ?? item.amountLow,
+          amountHigh: w.amount ?? item.amountHigh,
+        })
+      }
+      setItemWhatIf({})
+      toast.success(`Saved ${savable.length} planned item${savable.length === 1 ? '' : 's'}`)
+    } catch {
+      toast.error('Couldn’t save the plan. Try again.')
+    }
+  }
   const resetWhatIf = () => {
     setDailySpend(null)
     setItemWhatIf({})
@@ -284,7 +314,19 @@ function FutureView() {
       {(plannedItems ?? []).some((item) => item.date >= todayInput()) && (
         <div className="rounded-2xl border border-border bg-card p-4">
           <p className="text-sm font-semibold">Planned items</p>
-          <p className="mb-3 text-xs text-muted-foreground">Turn one off or slide its amount to see what changes. Your plan stays as it is.</p>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Turn one off, move its date or slide its amount to see what changes. Your plan stays as it is until you save.</p>
+            {savable.length > 0 && (
+              <button
+                type="button"
+                onClick={saveToPlan}
+                disabled={savingPlan}
+                className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-ios disabled:opacity-60"
+              >
+                {savingPlan ? 'Saving…' : 'Save to plan'}
+              </button>
+            )}
+          </div>
           <ul className="space-y-3">
             {(plannedItems ?? [])
               .filter((item) => item.date >= todayInput())
@@ -294,14 +336,16 @@ function FutureView() {
                 const low = item.amountLow
                 const high = Math.max(item.amountLow, item.amountHigh)
                 const value = whatIf.amount ?? (low + high) / 2
-                const set = (next: { skip?: boolean; amount?: number }) => setItemWhatIf((prev) => ({ ...prev, [item.id]: { ...prev[item.id], ...next } }))
+                const set = (next: { skip?: boolean; amount?: number; date?: string }) => setItemWhatIf((prev) => ({ ...prev, [item.id]: { ...prev[item.id], ...next } }))
+                const day = whatIf.date ?? item.date
+                const shift = (by: number) => set({ date: format(addDays(parseISO(day), by), 'yyyy-MM-dd') })
                 return (
                   <li key={item.id} className="rounded-xl bg-secondary/40 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className={`truncate text-sm font-medium ${on ? '' : 'text-muted-foreground line-through'}`}>{item.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(parseISO(item.date), 'EEE, MMM d')} · {item.type === 'income' ? 'income' : 'expense'}
+                          <span className={day !== item.date ? 'font-semibold text-primary' : ''}>{format(parseISO(day), 'EEE, MMM d')}</span> · {item.type === 'income' ? 'income' : 'expense'}
                         </p>
                       </div>
                       <span className={`shrink-0 text-sm font-bold ${item.type === 'income' ? 'text-success' : 'text-foreground'}`}>
@@ -310,6 +354,22 @@ function FutureView() {
                       </span>
                       <Switch checked={on} onCheckedChange={(checked) => set({ skip: !checked })} aria-label={`Include ${item.name}`} />
                     </div>
+                    {on && (
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">Move it</span>
+                        {[-7, -1, 1, 7].map((by) => (
+                          <button
+                            key={by}
+                            type="button"
+                            onClick={() => shift(by)}
+                            disabled={by < 0 && day <= todayInput()}
+                            className="rounded-full border border-border bg-card px-2.5 py-1 font-semibold tabular-nums text-foreground hover:border-primary/50 disabled:opacity-40"
+                          >
+                            {by > 0 ? `+${by}` : by}d
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {on && high > low && (
                       <input
                         type="range"
