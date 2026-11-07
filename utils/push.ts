@@ -48,8 +48,11 @@ export async function enablePush(): Promise<void> {
   const json = subscription.toJSON()
   const { data: auth } = await supabase.auth.getUser()
   if (!auth.user) throw new Error('Sign in again to turn on reminders.')
+  // A new device takes the check-in time the account already picked on another one.
+  const hour = await getCheckinHour()
   const { error } = await supabase.from('push_subscriptions').upsert(
     {
+      ...(hour !== DEFAULT_CHECKIN_HOUR ? { checkin_hour: hour } : {}),
       owner_id: auth.user.id,
       endpoint: subscription.endpoint,
       p256dh: json.keys?.p256dh,
@@ -72,4 +75,31 @@ export async function disablePush(): Promise<void> {
 export async function sendTestPush(): Promise<void> {
   const { error } = await supabase.functions.invoke('bill-reminders', { body: { test: true } })
   if (error) throw error
+}
+
+/** Check-in hours people can pick, in Manila time (24h). */
+export const CHECKIN_HOURS = [17, 18, 19, 20, 21, 22, 23] as const
+export const DEFAULT_CHECKIN_HOUR = 20
+
+export const checkinLabel = (hour: number) => {
+  const h = hour % 12 === 0 ? 12 : hour % 12
+  return `${h} ${hour < 12 ? 'am' : 'pm'}`
+}
+
+/** The evening check-in hour saved for this account (Manila time). */
+export async function getCheckinHour(): Promise<number> {
+  const { data, error } = await supabase.from('push_subscriptions').select('checkin_hour').limit(1).maybeSingle()
+  if (error || !data) return DEFAULT_CHECKIN_HOUR
+  return Number((data as { checkin_hour?: number }).checkin_hour ?? DEFAULT_CHECKIN_HOUR)
+}
+
+/** Saves the check-in hour on every device of this account, so they all ring at the same time. */
+export async function setCheckinHour(hour: number): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) throw new Error('Sign in again to change the check-in time.')
+  const { error } = await supabase.from('push_subscriptions').update({ checkin_hour: hour }).eq('owner_id', auth.user.id)
+  if (error) {
+    if (/checkin_hour/.test(error.message)) throw new Error('The server needs an update before you can change this.')
+    throw error
+  }
 }

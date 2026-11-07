@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { format, formatDistanceToNowStrict } from 'date-fns'
 import toast from 'react-hot-toast'
-import { Bell, CalendarDays, Check, ChevronRight, Coins, Download, EyeOff, House, LayoutList, LogOut, Moon, RefreshCw, RotateCcw, Trash2, UserRound } from 'lucide-react'
+import { Bell, CalendarDays, Check, ChevronRight, Clock, Coins, Download, EyeOff, House, LayoutList, LogOut, Moon, RefreshCw, RotateCcw, Trash2, UserRound } from 'lucide-react'
 import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { DEFAULT_SETTINGS, useSettingsStore } from '@/store/settings-store'
@@ -15,7 +15,19 @@ import { useThemeStore } from '@/store/theme-store'
 import { formatMoney } from '@/utils/formatter'
 import { cn } from '@/lib/utils'
 import { saveFile } from '@/utils/export-data'
-import { currentPushSubscription, disablePush, enablePush, pushSupport, sendTestPush, type PushSupport } from '@/utils/push'
+import {
+  CHECKIN_HOURS,
+  DEFAULT_CHECKIN_HOUR,
+  checkinLabel,
+  currentPushSubscription,
+  disablePush,
+  enablePush,
+  getCheckinHour,
+  pushSupport,
+  sendTestPush,
+  setCheckinHour,
+  type PushSupport,
+} from '@/utils/push'
 import { useSyncStatus } from '@/lib/local/status'
 import { useSyncSheet } from '@/components/page/settings/sync-debug'
 import type { CurrencyCode, DateFormat, LandingPage } from '@/types/settings'
@@ -217,7 +229,7 @@ function EyeSpots() {
 }
 
 const PUSH_HINTS: Record<PushSupport, string> = {
-  ready: 'Bill reminders, plus a spending update every few hours (8am, 2pm and 8pm).',
+  ready: 'Bill reminders, a spending update at 8am and 2pm, and an evening check-in.',
   'needs-install': 'On iPhone, add Fico to your Home Screen first, then open it from there to turn this on.',
   unsupported: 'This browser cannot show notifications.',
   unconfigured: 'Reminders are not set up on the server yet.',
@@ -256,14 +268,61 @@ function BillReminderRow() {
 
   const usable = support === 'ready' && !busy
   return (
-    <Row
-      icon={<Bell className="size-[18px]" />}
-      tone="primary"
-      label="Bill and spending alerts"
-      hint={PUSH_HINTS[support]}
-      onRowClick={usable ? () => change(!enabled) : undefined}
-      control={<Toggle checked={enabled} onChange={(next) => usable && change(next)} label="Bill and spending alerts" />}
-    />
+    <>
+      <Row
+        icon={<Bell className="size-[18px]" />}
+        tone="primary"
+        label="Bill and spending alerts"
+        hint={PUSH_HINTS[support]}
+        onRowClick={usable ? () => change(!enabled) : undefined}
+        control={<Toggle checked={enabled} onChange={(next) => usable && change(next)} label="Bill and spending alerts" />}
+      />
+      {enabled && <CheckinTimeRow />}
+    </>
+  )
+}
+
+function CheckinTimeRow() {
+  const [hour, setHour] = useState(DEFAULT_CHECKIN_HOUR)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    getCheckinHour().then(setHour).catch(() => {})
+  }, [])
+
+  const pick = async (value: string) => {
+    const next = Number(value)
+    const before = hour
+    setHour(next)
+    try {
+      await setCheckinHour(next)
+      toast.success(`Check-in moved to ${checkinLabel(next)}`)
+    } catch (error) {
+      setHour(before)
+      toast.error(error instanceof Error ? error.message : 'Could not change the check-in time')
+    }
+  }
+
+  return (
+    <>
+      <Row
+        icon={<Clock className="size-[18px]" />}
+        tone="primary"
+        label="Evening check-in"
+        hint="A nudge to log the day’s spending, with today’s total."
+        value={checkinLabel(hour)}
+        onClick={() => setOpen(true)}
+      />
+      <Picker
+        open={open}
+        onOpenChange={setOpen}
+        title="Evening check-in"
+        description="Philippine time. All your devices get it at this hour."
+        options={CHECKIN_HOURS.map((h) => ({ value: String(h), label: checkinLabel(h) }))}
+        value={String(hour)}
+        onSelect={pick}
+      />
+    </>
   )
 }
 
