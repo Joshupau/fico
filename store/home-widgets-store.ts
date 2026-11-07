@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+// latestActivity now shows the weekly spending heatmap. The id stays so saved layouts keep its place.
 export type WidgetId = 'safeToSpend' | 'toSort' | 'yourMoney' | 'whereItWent' | 'comingUp' | 'owedToYou' | 'crypto' | 'latestActivity' | 'quickActions'
 
 export const WIDGETS: { id: WidgetId; label: string; hint: string }[] = [
@@ -11,7 +12,7 @@ export const WIDGETS: { id: WidgetId; label: string; hint: string }[] = [
   { id: 'comingUp', label: 'Coming up', hint: 'Bills due soon' },
   { id: 'owedToYou', label: 'Owed to you', hint: 'People who owe you money' },
   { id: 'crypto', label: 'Crypto', hint: 'Live value of your coins. Shows once you add a coin' },
-  { id: 'latestActivity', label: 'Latest activity', hint: 'Your newest transactions' },
+  { id: 'latestActivity', label: 'Weekly spending', hint: 'Heatmap of what you spent each day' },
   { id: 'quickActions', label: 'Quick actions', hint: 'Shortcut grid, shown on large screens only' },
 ]
 

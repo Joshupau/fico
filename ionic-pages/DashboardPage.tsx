@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { IonPage, IonContent } from '@ionic/react'
 import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns'
-import { ArrowDownLeft, ArrowUpRight, BarChart3, ChevronRight, CreditCard, PieChart, Plus, SlidersHorizontal, Tag, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, CreditCard, PieChart, Plus, SlidersHorizontal, Tag, type LucideIcon } from 'lucide-react'
 import { EmptyState } from '@/components/peacock-mascot'
 import { FicoBalanceCard, PERIODS, type Period } from '@/components/page/home/fico-balance-card'
 import { useUser } from '@/store/auth-store'
@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SafeToSpendBody } from '@/components/page/home/safe-to-spend-card'
 import { useSafeToSpendInputs } from '@/hooks/use-safe-to-spend'
 import { safeToSpend } from '@/utils/safe-to-spend'
+import { WeeklySpendingHeatmap } from '@/components/page/home/weekly-spending-heatmap'
 import { TriageInbox, useUncategorized } from '@/components/page/transaction/triage-inbox'
 
 const SHORTCUTS: { label: string; hint: string; href: string; icon: LucideIcon }[] = [
@@ -77,7 +78,7 @@ export default function DashboardPage() {
   const { data: statsResponse, isLoading: statsLoading } = useQuickStats({ period })
   const { data: categoriesResponse, isLoading: categoriesLoading } = useTopCategories({ period, type: 'expense' })
   const { data: obligationsResponse, isLoading: obligationsLoading } = useListObligations({ limit: '100', direction: 'lending' })
-  const { data: transactionsResponse, isLoading: transactionsLoading } = useListTransactions({ limit: '5' })
+  const { data: transactionsResponse, isLoading: transactionsLoading } = useListTransactions({ limit: '1' })
 
   const today = useMemo(() => new Date(), [])
   const { data: billsResponse, isLoading: billsLoading } = useBillCalendar({
@@ -131,7 +132,7 @@ export default function DashboardPage() {
       const share = Math.round((top.amount / categoryTotal) * 100)
       return `Most of your spending ${periodPhrase} went to ${top.name}, about ${share}% of the total.`
     }
-    // Latest activity isn't limited to the period, so it tells a new account from a quiet period (e.g. the 1st).
+    // Any transaction at all (not limited to the period) tells a new account from a quiet period (e.g. the 1st).
     if (transactions.length > 0) {
       if (income > 0) return `No spending yet ${periodPhrase}, and ${formatMoney(income, currency, !showAmounts)} has come in so far.`
       return `Nothing yet ${periodPhrase}. Add something and I will pick up where you left off.`
@@ -388,40 +389,10 @@ export default function DashboardPage() {
         </Card>
       ),
     latestActivity: (
-                    <Card className="order-6 lg:order-none">
-                <CardHeader title="Latest activity" to="/transactions" />
-                {transactionsLoading ? (
-                  <div className="space-y-2">
-                    {[0, 1, 2].map((i) => (
-                      <Skeleton key={i} className="h-12 rounded-2xl" />
-                    ))}
-                  </div>
-                ) : transactions.length > 0 ? (
-                  <ul className="divide-y divide-border">
-                    {transactions.map((t) => (
-                      <li key={t.id} className="flex items-center gap-3 py-3">
-                        <span
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                            t.type === 'income' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
-                          }`}
-                        >
-                          {t.type === 'income' ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-foreground">{t.title}</span>
-                          <span className="block text-xs text-muted-foreground">{format(t.date, 'MMM d')}</span>
-                        </span>
-                        <span className={`text-sm font-semibold tabular-nums ${t.type === 'income' ? 'text-success' : 'text-foreground'}`}>
-                          {t.type === 'income' ? '+' : '-'}
-                          {money(t.amount)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="py-4 text-center text-sm text-muted-foreground">No activity yet. Tap + to add your first transaction.</p>
-                )}
-              </Card>
+      <Card className="order-6 lg:order-none">
+        <CardHeader title="Weekly spending" to="/transactions" />
+        <WeeklySpendingHeatmap money={money} />
+      </Card>
     ),
     quickActions: (
                     <Card className="hidden lg:block">
