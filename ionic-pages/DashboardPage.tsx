@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { IonPage, IonContent } from '@ionic/react'
 import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns'
@@ -47,6 +47,19 @@ const asList = (data: any, keys: string[] = ['items']): any[] => {
   if (Array.isArray(data)) return data
   for (const key of keys) if (Array.isArray(data?.[key])) return data[key]
   return []
+}
+
+/** True at the `lg` breakpoint (1024px) and up, where Home shows two columns. */
+function useIsWide() {
+  const [wide, setWide] = useState(false)
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1024px)')
+    const update = () => setWide(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return wide
 }
 
 function Card({ className = '', children }: { className?: string; children: React.ReactNode }) {
@@ -422,6 +435,10 @@ export default function DashboardPage() {
 
   const { order, hidden } = useHomeWidgets()
   const visibleWidgets = resolveOrder(order).filter((id) => !hidden.includes(id))
+  // Widgets with nothing to show (no crypto, nothing to sort) render null; skip them so the desktop
+  // columns stay balanced.
+  const shownWidgets = visibleWidgets.filter((id) => widgetNodes[id] != null)
+  const isWide = useIsWide()
 
   return (
     <IonPage>
@@ -469,11 +486,27 @@ export default function DashboardPage() {
 
             {backendHasBills && <PaydayCard money={money} safe={safeResult} />}
 
-            <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:items-start">
-              {visibleWidgets.map((id) => (
-                <Fragment key={id}>{widgetNodes[id]}</Fragment>
-              ))}
-            </div>
+            {isWide ? (
+              // Two columns that each stack on their own, so a tall card (the heatmap) doesn't leave a
+              // gap beside it the way grid rows did. Widgets alternate left/right in the chosen order.
+              <div className="mt-4 grid grid-cols-[repeat(2,minmax(0,1fr))] items-start gap-4">
+                {[0, 1].map((column) => (
+                  <div key={column} className="flex min-w-0 flex-col gap-4">
+                    {shownWidgets
+                      .filter((_, index) => index % 2 === column)
+                      .map((id) => (
+                        <Fragment key={id}>{widgetNodes[id]}</Fragment>
+                      ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4">
+                {shownWidgets.map((id) => (
+                  <Fragment key={id}>{widgetNodes[id]}</Fragment>
+                ))}
+              </div>
+            )}
 
             <button
               type="button"
