@@ -23,26 +23,27 @@ export function onUpdateReady(listener: Listener) {
   }
 }
 
-/** Switches to the waiting version and reloads once it has taken over. */
-export function applyUpdate() {
-  if (!waiting) {
-    window.location.reload()
-    return
-  }
+/**
+ * Switches to the waiting version and reloads once it has taken over. `beforeReload` runs just
+ * before the reload, which waits a moment so the caller can show that the update finished.
+ */
+export function applyUpdate(beforeReload?: () => void) {
   let reloaded = false
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
+  const reload = () => {
     if (reloaded) return
     reloaded = true
-    window.location.reload()
-  })
+    beforeReload?.()
+    window.setTimeout(() => window.location.reload(), beforeReload ? 350 : 0)
+  }
+  if (!waiting) {
+    reload()
+    return
+  }
+  navigator.serviceWorker.addEventListener('controllerchange', reload)
   waiting.postMessage({ type: 'SKIP_WAITING' })
   // If the switch never happens (say the waiting worker was replaced), reload anyway: page loads
   // come from the network, so the user still ends up on the latest version.
-  window.setTimeout(() => {
-    if (reloaded) return
-    reloaded = true
-    window.location.reload()
-  }, 4000)
+  window.setTimeout(reload, 4000)
 }
 
 // A newer build is only "ready" once installed while an older one still runs this page.
