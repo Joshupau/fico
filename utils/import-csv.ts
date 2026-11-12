@@ -6,6 +6,8 @@
 import { applyRules, type Rule } from './rules'
 
 export interface ImportRow {
+  /** 1-based line in the file (the header is line 1). Lets the reconcile step point at a row. */
+  line: number
   date: string
   amount: number
   type: 'income' | 'expense'
@@ -226,6 +228,7 @@ export function parseImportCsv(
     for (const tag of ruled.tags) if (!tags.includes(tag)) tags.push(tag)
 
     valid.push({
+      line: rowNum,
       date: parsedDate.toISOString(),
       amount: parsedAmount,
       type,

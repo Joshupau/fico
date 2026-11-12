@@ -4,6 +4,7 @@ import { axiosInstance, axiosInstanceFormData } from "@/utils/axios-instance";
 import { supabase } from "@/utils/supabase-client";
 import { toCamelCase } from "@/utils/case-transform";
 import { parseImportCsv } from "@/utils/import-csv";
+import { applyFixesToImportRows } from "@/utils/import-reconcile";
 import { ruleFromRow } from "@/queries/user/rule/rules";
 import { handleApiError } from "@/utils/error-handler";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -350,7 +351,10 @@ const importTransactions = async (data: ImportTransactionsData) => {
     // The user's categorization rules fill rows the file leaves without a category (none if the table isn't there yet).
     const { data: ruleRows } = await supabase.from('rules').select('*');
     const rules = (ruleRows ?? []).map(ruleFromRow);
-    const { totalRows, valid, skipped } = parseImportCsv(await data.file.text(), categories ?? [], data.categoryId, rules);
+    const parsed = parseImportCsv(await data.file.text(), categories ?? [], data.categoryId, rules);
+    const { totalRows, skipped } = parsed;
+    // Only fixes the user accepted in the reconcile step reach here; nothing is changed on its own.
+    const valid = data.fixes?.length ? applyFixesToImportRows(parsed.valid, data.fixes, data.currency ?? 'PHP') : parsed.valid;
 
     if (preview) {
       return {

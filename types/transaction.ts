@@ -100,6 +100,10 @@ export type ImportTransactionsData = {
   walletId: string;
   categoryId?: string;
   preview?: string | boolean;
+  /** Fixes the user accepted in the reconcile step (utils/import-reconcile.ts). Applied to the parsed rows before import. */
+  fixes?: import('@/utils/ledgerlens').Fix[];
+  /** Wallet currency, used to convert fixed amounts. Defaults to PHP. */
+  currency?: string;
 }
 
 export type transactionsSummaryParams = {
