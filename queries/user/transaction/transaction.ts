@@ -5,6 +5,7 @@ import { supabase } from "@/utils/supabase-client";
 import { toCamelCase } from "@/utils/case-transform";
 import { parseImportCsv } from "@/utils/import-csv";
 import { applyFixesToImportRows } from "@/utils/import-reconcile";
+import { withImportKeys } from "@/utils/import-key";
 import { ruleFromRow } from "@/queries/user/rule/rules";
 import { handleApiError } from "@/utils/error-handler";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -369,17 +370,23 @@ const importTransactions = async (data: ImportTransactionsData) => {
       };
     }
 
+    // Each row carries a content key so importing the same file again skips rows already there.
     const { data: result, error } = await supabase.rpc('transactions_bulk_import', {
       p_wallet_id: data.walletId,
-      p_rows: valid,
+      p_rows: await withImportKeys(valid),
     });
     if (error) throw error;
+    const imported: number = result?.imported ?? valid.length;
+    const duplicates: number = result?.duplicates ?? 0;
     return {
       message: 'success',
       data: {
-        message: `Successfully imported ${valid.length} transaction${valid.length !== 1 ? 's' : ''}.`,
+        message: duplicates
+          ? `Imported ${imported} transaction${imported !== 1 ? 's' : ''}; ${duplicates} ${duplicates === 1 ? 'was' : 'were'} already there.`
+          : `Successfully imported ${imported} transaction${imported !== 1 ? 's' : ''}.`,
         totalRows,
-        imported: result?.imported ?? valid.length,
+        imported,
+        duplicates,
         skipped: skipped.length,
         skippedRows: skipped,
       },

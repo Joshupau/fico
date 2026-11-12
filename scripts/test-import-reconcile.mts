@@ -4,6 +4,7 @@ import { parseImportCsv } from '../utils/import-csv'
 import { applyDecisions, applyFixesToImportRows, checkStatement, statusLabel } from '../utils/import-reconcile'
 // Named import from the module file: the .mts test runs as ESM and cannot see `export *` re-exports from the CJS-compiled index.
 import { reconcile } from '../utils/ledgerlens/reconcile'
+import { withImportKeys } from '../utils/import-key'
 
 let failures = 0
 const check = (label: string, ok: boolean, extra?: unknown) => {
@@ -57,6 +58,17 @@ check('without balances it says so', unverifiable?.report.status === 'unverifiab
 
 // Files that are not statements do not block the import.
 check('non-statement CSV returns null', checkStatement('Name,Note\na,b\n', 'PHP') === null)
+
+// Import keys: same file -> same keys; identical rows in one file -> distinct keys; order-independent of line numbers.
+const keyedA = await withImportKeys(parseImportCsv(CLEAN, []).valid)
+const keyedB = await withImportKeys(parseImportCsv(CLEAN, []).valid)
+check('re-importing the same file gives the same keys', keyedA.map((r) => r.import_key).join() === keyedB.map((r) => r.import_key).join())
+check('keys are 64 hex chars', keyedA.every((r) => /^[0-9a-f]{64}$/.test(r.import_key)))
+const twice = CLEAN + '2026-09-01,COFFEE SHOP,150.00,,"9,224.50"\n'
+const keyedTwice = await withImportKeys(parseImportCsv(twice, []).valid)
+check('two identical purchases keep distinct keys', keyedTwice[0]!.import_key !== keyedTwice[5]!.import_key && new Set(keyedTwice.map((r) => r.import_key)).size === 6)
+const shifted = await withImportKeys(parseImportCsv('Date,Description,Debit,Credit\n\n' + CLEAN.split('\n').slice(1).join('\n'), []).valid)
+check('keys do not depend on line numbers', shifted.map((r) => r.import_key).join() === keyedA.map((r) => r.import_key).join())
 
 console.log(failures ? failures + ' FAILURES' : 'ALL PASSED')
 process.exit(failures ? 1 : 0)
