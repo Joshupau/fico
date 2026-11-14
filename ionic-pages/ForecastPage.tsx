@@ -16,6 +16,7 @@ import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import { balancesAt, buildForecast, typicalFlow, type ForecastPlanned, type WalletSnapshot } from '@/utils/forecast'
 import { useListPlannedItems, useUpdatePlannedItem } from '@/queries/user/planned/planned-items'
+import { isPlanOpen } from '@/types/planned-item'
 
 type Tab = 'forecast' | 'lookback'
 
@@ -130,7 +131,7 @@ function FutureView() {
   const planned = useMemo<ForecastPlanned[]>(
     () =>
       (plannedItems ?? [])
-        .filter((item) => !itemWhatIf[item.id]?.skip)
+        .filter((item) => isPlanOpen(item) && !itemWhatIf[item.id]?.skip)
         .map((item) => ({ ...item, amount: itemWhatIf[item.id]?.amount, date: itemWhatIf[item.id]?.date ?? item.date })),
     [plannedItems, itemWhatIf]
   )
