@@ -13,6 +13,9 @@ import { occurrence, type ForecastBill } from '@/utils/forecast'
 /** A bill or planned expense still to pay. `amount` is what is left to pay. */
 export type SafeBill = { dueDate: string; amount: number; name?: string }
 
+/** A planned item that is only expected, so it is shown as a heads-up and not taken out. */
+export type SafePlan = { date: string; type: 'income' | 'expense'; low: number; high: number; name?: string }
+
 export type SafeToSpendInput = {
   /** Total of cash-like wallets (cash, bank, e-wallet, savings you spend from). Not credit cards. */
   cashBalance: number
@@ -22,6 +25,13 @@ export type SafeToSpendInput = {
   bills: SafeBill[]
   /** Income still to come: planned items or recurring income. */
   incomes: { date: string; amount: number }[]
+  /**
+   * Confirmed one-off income (a planned item, not a payday). It adds to the money for this stretch
+   * when it lands after today and before the next payday, and it never moves the payday.
+   */
+  extraIncome?: { date: string; amount: number; name?: string }[]
+  /** Planned items still only expected. Listed when they fall before payday, never taken out. */
+  plans?: SafePlan[]
   /** Spent so far today, already taken out of `cashBalance`. */
   spentToday?: number
   today?: Date
@@ -41,6 +51,12 @@ export type SafeToSpend = {
   billsDue: SafeBill[]
   /** First bill on or after the next income, which that income is expected to cover. */
   nextBill: SafeBill | null
+  /** Confirmed planned income before payday, already added to `usable`. */
+  extraBefore: number
+  /** Expected planned items before payday, soonest first. Not part of `usable`. */
+  plansDue: SafePlan[]
+  /** What `usable` would be if every expected plan happens: spending at its high, income at its low estimate. */
+  usableIfPlans: number
   perDay: number
   leftToday: number
   /** True when `usable` is negative: the bills before payday are more than the cash. */
@@ -73,7 +89,23 @@ export function safeToSpend(input: SafeToSpendInput): SafeToSpend {
   const billsBefore = billsDue.reduce((sum, b) => sum + b.amount, 0)
   const nextBill = sorted.find((b) => !isBefore(b)) ?? null
 
-  const usable = Number(input.cashBalance) - floor - billsBefore
+  // Before payday and still to come. Income landing today is left out, as it is likely logged already.
+  const inStretch = (date: string, fromToday: boolean) => {
+    const d = differenceInCalendarDays(startOfDay(parseISO(date)), today)
+    return (fromToday ? d >= 0 : d > 0) && differenceInCalendarDays(startOfDay(parseISO(date)), horizonEnd) < 0
+  }
+  const extraBefore = (input.extraIncome ?? [])
+    .filter((i) => (Number(i.amount) || 0) > 0 && inStretch(i.date, false))
+    .reduce((sum, i) => sum + (Number(i.amount) || 0), 0)
+  const plansDue = (input.plans ?? [])
+    .filter((p) => (Number(p.high) || 0) > 0 && inStretch(p.date, p.type === 'expense'))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  const usable = Number(input.cashBalance) - floor - billsBefore + extraBefore
+  const usableIfPlans = plansDue.reduce(
+    (sum, p) => (p.type === 'expense' ? sum - (Number(p.high) || 0) : sum + (Number(p.low) || 0)),
+    usable
+  )
   const pool = usable + spentToday
   const perDay = Math.max(0, pool) / days
 
@@ -84,6 +116,9 @@ export function safeToSpend(input: SafeToSpendInput): SafeToSpend {
     billsBefore,
     billsDue,
     nextBill,
+    extraBefore,
+    plansDue,
+    usableIfPlans,
     perDay,
     leftToday: perDay - spentToday,
     short: usable < 0,
@@ -95,7 +130,7 @@ export function safeToSpend(input: SafeToSpendInput): SafeToSpend {
  * transaction already counted. Returns null when there is nothing useful to say.
  */
 export function instantAnswer(after: SafeToSpend, money: (n: number) => string): string | null {
-  if (after.short) return `Bills before your next income are ${money(Math.abs(after.usable))} more than your cash.`
+  if (after.short) return `Bills before your next income are ${money(Math.round(Math.abs(after.usable)))} more than your cash.`
   const left = Math.round(after.leftToday)
   const until = `${money(Math.round(after.usable))} until ${after.nextIncomeDate ? 'payday' : 'month end'}.`
   if (left >= 0) return `${money(left)} left for today, ${until}`
@@ -149,8 +184,11 @@ export const walletCounts = (wallet: { type?: string }, rule?: SafeWalletRule) =
 export function safeToSpendInputs(data: {
   wallets: { id?: string; _id?: string; type?: string; balance?: number | string; status?: string }[]
   openBills: ForecastBill[]
-  /** Planned one-off items. Expenses count at their high estimate; planned income is not counted. */
-  planned?: { type: 'income' | 'expense'; date: string; amountHigh: number; amountLow?: number; name?: string }[]
+  /**
+   * Planned one-off items. Confirmed ones count: spending at its high estimate, income at its low one.
+   * Expected ones are only listed, so a maybe (a trip, birthday money) doesn't empty today's allowance.
+   */
+  planned?: { type: 'income' | 'expense'; date: string; amountHigh: number; amountLow?: number; name?: string; status?: string }[]
   rules?: Record<string, SafeWalletRule>
   spentToday?: number
   /** Today's spending per wallet id. When given, spending from wallets left out of the total is dropped. */
@@ -197,12 +235,23 @@ export function safeToSpendInputs(data: {
       add(next, Number(bill.amount) || 0)
     }
   }
+  const extraIncome: NonNullable<SafeToSpendInput['extraIncome']> = []
+  const plans: SafePlan[] = []
   for (const item of data.planned ?? []) {
-    if (item.type !== 'expense') continue
+    // Already paid or received: the wallet balance shows it, so counting it again would take it out twice.
+    if (item.status === 'done') continue
     const date = startOfDay(parseISO(String(item.date)))
     if (date < today) continue
-    const amount = Number(item.amountHigh) || Number(item.amountLow) || 0
-    if (amount > 0) bills.push({ dueDate: ymd(date), amount, name: item.name })
+    const high = Number(item.amountHigh) || Number(item.amountLow) || 0
+    const low = item.amountLow == null ? high : Math.max(0, Number(item.amountLow) || 0)
+    if (high <= 0) continue
+    if (item.status !== 'confirmed') {
+      plans.push({ date: ymd(date), type: item.type, low, high, name: item.name })
+    } else if (item.type === 'expense') {
+      bills.push({ dueDate: ymd(date), amount: high, name: item.name })
+    } else if (low > 0) {
+      extraIncome.push({ date: ymd(date), amount: low, name: item.name })
+    }
   }
 
   return {
@@ -210,6 +259,8 @@ export function safeToSpendInputs(data: {
     floor: data.floor,
     bills,
     incomes,
+    extraIncome,
+    plans,
     spentToday,
     today,
     fallbackDays: Math.max(1, differenceInCalendarDays(endOfMonth(today), today)),

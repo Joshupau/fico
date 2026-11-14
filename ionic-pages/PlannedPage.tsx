@@ -13,7 +13,7 @@ import { useDeletePlannedItem, useListPlannedItems } from '@/queries/user/planne
 import { useSettingsStore } from '@/store/settings-store'
 import { ManageHeader } from '@/components/page/manage-header'
 import { formatMoney } from '@/utils/formatter'
-import type { PlannedItem, PlannedItemType } from '@/types/planned-item'
+import { isPlanOpen, type PlannedItem, type PlannedItemType } from '@/types/planned-item'
 
 type Tab = 'all' | PlannedItemType
 
@@ -38,12 +38,13 @@ export default function PlannedPage() {
   const all = useMemo(() => data ?? [], [data])
   const items = tab === 'all' ? all : all.filter((i) => i.type === tab)
   const today = localToday()
-  const upcoming = items.filter((i) => i.date >= today)
-  const passed = items.filter((i) => i.date < today).reverse()
+  // Paid or received items move down with the ones whose date passed.
+  const upcoming = items.filter((i) => i.date >= today && isPlanOpen(i))
+  const passed = items.filter((i) => i.date < today || !isPlanOpen(i)).reverse()
 
   // Totals cover everything still ahead, whichever tab is showing.
   const totals = useMemo(() => {
-    const ahead = all.filter((i) => i.date >= today)
+    const ahead = all.filter((i) => i.date >= today && isPlanOpen(i))
     const sum = (type: PlannedItemType, key: 'amountLow' | 'amountHigh') => ahead.filter((i) => i.type === type).reduce((s, i) => s + i[key], 0)
     const income = { low: sum('income', 'amountLow'), high: sum('income', 'amountHigh') }
     const expenses = { low: sum('expense', 'amountLow'), high: sum('expense', 'amountHigh') }
@@ -116,8 +117,8 @@ export default function PlannedPage() {
                   </div>
                 )}
                 {passed.length > 0 && (
-                  <section aria-label="Already passed">
-                    <h2 className="mb-2.5 px-1 font-heading text-sm font-semibold text-muted-foreground">Already passed</h2>
+                  <section aria-label="Done or passed">
+                    <h2 className="mb-2.5 px-1 font-heading text-sm font-semibold text-muted-foreground">Done or passed</h2>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {passed.map((item) => (
                         <PlannedItemCard key={item.id} item={item} hideAmounts={!showAmounts} onEdit={openEdit} onDelete={setDeleting} />
