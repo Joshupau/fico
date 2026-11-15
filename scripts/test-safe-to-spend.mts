@@ -119,15 +119,16 @@ const chosen = safeToSpendInputs({
   rules: { bdo: { min: 2000 }, gotyme: { include: false } },
   openBills: [],
   planned: [
-    { type: 'expense', date: '2026-11-10', amountLow: 900, amountHigh: 1500 },
+    { type: 'expense', date: '2026-11-10', amountLow: 900, amountHigh: 1500, status: 'confirmed' },
     { type: 'income', date: '2026-11-09', amountLow: 5000, amountHigh: 10000 },
     { type: 'expense', date: '2026-10-01', amountHigh: 999 },
   ],
 })
 check('bank minimum kept back', Math.round(chosen.cashBalance * 100) === Math.round((2103.77 + 1119.82 + 1510) * 100), chosen.cashBalance)
 check('wallet switched off is left out, savings stay out', chosen.cashBalance < 5000, chosen.cashBalance)
-check('planned expense counts at its high estimate', chosen.bills.some((b) => b.dueDate === '2026-11-10' && b.amount === 1500), chosen.bills)
-check('planned income is not counted', chosen.incomes.length === 0, chosen.incomes)
+check('confirmed planned expense counts at its high estimate', chosen.bills.some((b) => b.dueDate === '2026-11-10' && b.amount === 1500), chosen.bills)
+check('planned income never becomes a payday', chosen.incomes.length === 0, chosen.incomes)
+check('expected planned income is only listed', chosen.extraIncome?.length === 0 && chosen.plans?.length === 1, chosen)
 check('past planned expense ignored', !chosen.bills.some((b) => b.dueDate === '2026-10-01'), chosen.bills)
 const savingsOn = safeToSpendInputs({ today, wallets: [{ id: 'ef', type: 'savings', balance: 100 }], rules: { ef: { include: true } }, openBills: [] })
 check('a savings wallet can be switched on', savingsOn.cashBalance === 100, savingsOn)
@@ -172,9 +173,46 @@ const named = safeToSpendInputs({
   today,
   wallets: [],
   openBills: [{ id: 'b', type: 'bill', name: 'Globe', amount: 999, dueDate: '2026-11-10', isRecurring: false, paymentStatus: 'unpaid' }],
-  planned: [{ type: 'expense', date: '2026-11-12', amountHigh: 1500, name: 'Birthday gift' }],
+  planned: [{ type: 'expense', date: '2026-11-12', amountHigh: 1500, name: 'Birthday gift', status: 'confirmed' }],
 })
 check('bill and planned names carried', named.bills.map((b) => b.name).join() === 'Globe,Birthday gift', named.bills)
+
+// Nov 14: pay just came in. A ₱9,000–15,000 flight is expected, birthday money ₱5,000–10,000 too.
+const nov14 = new Date(2026, 10, 14, 15, 0)
+const trip = (flight: string, birthday = 'expected') =>
+  safeToSpend(
+    safeToSpendInputs({
+      today: nov14,
+      wallets: [
+        { id: 'bdo', type: 'bank', balance: 14603.77 },
+        { id: 'cash', type: 'cash', balance: 2092 },
+      ],
+      rules: { bdo: { min: 2000 } },
+      openBills: [
+        { id: 'tt', type: 'bill', name: 'Tiktok Paylater', amount: 2874, dueDate: '2026-11-16', isRecurring: false, paymentStatus: 'unpaid' },
+        { id: 'cl', type: 'bill', name: 'Claude', amount: 1290, dueDate: '2026-11-26', isRecurring: false, paymentStatus: 'unpaid' },
+        { id: 'pay', type: 'income', name: 'Salary', amount: 12500, dueDate: '2026-11-28', isRecurring: false, paymentStatus: 'unpaid' },
+      ],
+      planned: [
+        { type: 'expense', date: '2026-11-21', amountLow: 9000, amountHigh: 15000, name: 'Flight', status: flight },
+        { type: 'income', date: '2026-11-17', amountLow: 5000, amountHigh: 10000, name: 'Birthday', status: birthday },
+      ],
+    })
+  )
+const expected = trip('expected')
+check('expected flight not taken out', expected.billsBefore === 4164 && !expected.short, expected)
+check('expected plans listed soonest first', expected.plansDue.map((p) => p.name).join() === 'Birthday,Flight', expected.plansDue)
+check('until payday is cash minus real bills', Math.round(expected.usable) === 10532, expected.usable)
+check('if plans happen: high spend, low income', Math.round(expected.usableIfPlans) === 10532 - 15000 + 5000, expected.usableIfPlans)
+check('payday stays Nov 28', expected.nextIncomeDate === '2026-11-28', expected.nextIncomeDate)
+const paid = trip('done')
+check('paid flight drops out entirely', paid.billsBefore === 4164 && paid.plansDue.every((p) => p.name !== 'Flight'), paid)
+const sure = trip('confirmed', 'confirmed')
+check('confirmed flight is set aside', sure.billsBefore === 19164, sure.billsBefore)
+check('confirmed birthday money adds its low estimate', sure.extraBefore === 5000 && Math.round(sure.usable) === 10532 - 15000 + 5000, sure)
+check('confirmed income does not move payday', sure.nextIncomeDate === '2026-11-28', sure.nextIncomeDate)
+const shortMsg = instantAnswer(safeToSpend({ ...base, cashBalance: 2500.07 }), (n) => `₱${n.toFixed(2)}`)
+check('short message is rounded like the ring', (shortMsg ?? '').includes('₱500.00'), shortMsg)
 
 console.log(`${passes} passed, ${failures} failed`)
 if (failures) process.exit(1)

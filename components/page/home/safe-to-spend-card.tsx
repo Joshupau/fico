@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { differenceInCalendarDays, format, parseISO, startOfDay } from 'date-fns'
 import { Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSettingsStore } from '@/store/settings-store'
 import { walletCounts, type SafeToSpend } from '@/utils/safe-to-spend'
@@ -62,7 +63,53 @@ function BillsBefore({ result, money, payday }: { result: SafeToSpend; money: (n
       </ul>
       <p className="mt-1.5 text-xs text-muted-foreground">
         {more > 0 && <>+{more} more · </>}
-        Already taken out of until {until}.{nextLine && <> {nextLine}</>}
+        Already taken out of until {until}.
+        {result.extraBefore > 0 && <> Planned income of {money(Math.round(result.extraBefore))} is added in.</>}
+        {nextLine && <> {nextLine}</>}
+      </p>
+    </div>
+  )
+}
+
+/** "₱9,000" when both estimates match, otherwise "₱9,000–15,000" style with both amounts. */
+const range = (low: number, high: number, money: (n: number) => string) =>
+  Math.round(low) === Math.round(high) ? money(Math.round(high)) : `${money(Math.round(low))}–${money(Math.round(high))}`
+
+/**
+ * Planned items before payday that are only expected. They are not taken out of "Until payday", so a
+ * maybe doesn't wipe out today's allowance, but you see whether they would fit if they happen.
+ */
+function PlansBefore({ result, money, payday }: { result: SafeToSpend; money: (n: number) => string; payday: Date | null }) {
+  if (!result.plansDue.length) return null
+  const until = payday ? 'payday' : 'month end'
+  const ifAll = Math.round(result.usableIfPlans)
+  return (
+    <div className="mt-3 border-t border-border pt-3 text-sm">
+      <span className="text-muted-foreground">Planned before {until}</span>
+      <ul className="mt-1.5 space-y-1">
+        {result.plansDue.map((plan, i) => (
+          <li key={`${plan.date}-${i}`} className="flex items-baseline justify-between gap-2">
+            <span className="min-w-0 truncate text-foreground">
+              {plan.name || 'Planned'}
+              <span className="text-muted-foreground"> · {format(parseISO(plan.date), 'MMM d')}</span>
+            </span>
+            <span className={`shrink-0 tabular-nums ${plan.type === 'income' ? 'text-success' : 'text-foreground'}`}>
+              {plan.type === 'income' ? '+' : ''}
+              {range(plan.low, plan.high, money)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Not taken out yet.{' '}
+        {ifAll >= 0 ? (
+          <>If they happen, <span className="text-foreground">{money(ifAll)}</span> is left until {until}.</>
+        ) : (
+          <>If they happen, you'd be <span className="text-destructive">{money(-ifAll)}</span> short.</>
+        )}{' '}
+        <Link to="/planned" className="font-semibold text-primary">
+          Mark them confirmed or paid
+        </Link>
       </p>
     </div>
   )
@@ -155,10 +202,11 @@ export function SafeToSpendBody({
       </div>
 
       <BillsBefore result={result} money={money} payday={payday} />
+      <PlansBefore result={result} money={money} payday={payday} />
 
       {result.short && (
         <p className="mt-3 rounded-2xl bg-destructive/10 p-2.5 text-sm font-medium text-destructive">
-          Bills before {payday ? 'payday' : 'month end'} are {money(Math.abs(result.usable))} more than your cash.
+          Bills before {payday ? 'payday' : 'month end'} are {money(Math.round(Math.abs(result.usable)))} more than your cash.
         </p>
       )}
 
