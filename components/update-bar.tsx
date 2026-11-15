@@ -5,6 +5,7 @@ import { RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { applyUpdate, onUpdateReady } from '@/utils/register-sw'
+import { fillStyle } from '@/lib/motion'
 
 /**
  * Shown when a new version of Fico has been downloaded. Nothing reloads by itself: tapping the bar
@@ -97,8 +98,9 @@ export function UpdateBar() {
                 className="h-2 overflow-hidden rounded-full bg-secondary"
               >
                 <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
-                  style={{ width: `${progress}%` }}
+                  data-keep-motion
+                  className="fill-bar h-full rounded-full bg-primary"
+                  style={fillStyle(progress)}
                 />
               </div>
               <p className="mt-2 text-xs tabular-nums text-muted-foreground">

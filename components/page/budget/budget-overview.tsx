@@ -110,7 +110,7 @@ export function BudgetOverview({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-all hover:bg-secondary/60">
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-ui hover:bg-secondary/60">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-success/10 rounded-lg">
                   <Wallet className="w-4 h-4 text-success" />
@@ -120,7 +120,7 @@ export function BudgetOverview({
               <p className="text-xl font-bold text-success break-words">{formatValue(totalRemaining)}</p>
             </div>
 
-            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-all hover:bg-secondary/60">
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-ui hover:bg-secondary/60">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-primary/10 rounded-lg">
                   <TrendingUp className="w-4 h-4 text-primary" />
@@ -130,7 +130,7 @@ export function BudgetOverview({
               <p className="text-xl font-bold text-destructive break-words">{exceededBudgets} Budgets</p>
             </div>
 
-            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-all hover:bg-secondary/60">
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-ui hover:bg-secondary/60">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-accent/10 rounded-lg">
                   <PieChart className="w-4 h-4 text-accent" />
@@ -140,7 +140,7 @@ export function BudgetOverview({
               <p className="text-xl font-bold text-foreground break-words">{burnRate.toFixed(1)}%</p>
             </div>
 
-            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-all hover:bg-secondary/60">
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 transition-ui hover:bg-secondary/60">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-warning/10 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-warning" />

@@ -201,7 +201,7 @@ export default function CategoryList({ searchQuery = '' }: { searchQuery?: strin
             ) : (
               <div
                 key={c.id}
-                className={`p-4 bg-card border border-border rounded-xl flex justify-between items-center hover:border-primary/30 transition-all duration-300 ${
+                className={`p-4 bg-card border border-border rounded-xl flex justify-between items-center hover:border-primary/30 transition-ui ${
                   c.status === 'archived' ? 'opacity-70' : ''
                 }`}
               >

@@ -184,7 +184,7 @@ export function BillModal({ open, onClose, onSuccess, bill }: BillModalProps) {
           </div>
           <button
             onClick={onClose}
-            className="max-md:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-all"
+            className="max-md:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-ui"
           >
             <X className="w-5 h-5" />
           </button>

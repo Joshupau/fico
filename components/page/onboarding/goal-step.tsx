@@ -54,7 +54,7 @@ export function GoalStep({ currency, initial, onNext, onBack }: { currency: stri
                 setName(idea.label)
                 if (!target) setTarget(String(idea.target))
               }}
-              className={`rounded-full border-2 px-3.5 py-2 text-sm font-semibold transition-all active:scale-[0.97] ${
+              className={`rounded-full border-2 px-3.5 py-2 text-sm font-semibold transition-ui active:scale-[0.97] ${
                 active ? 'border-gray-900 bg-gray-900/5 text-gray-900 dark:border-white dark:bg-white/10 dark:text-white' : 'border-gray-200 bg-white text-gray-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300'
               }`}
             >
@@ -104,7 +104,7 @@ export function GoalStep({ currency, initial, onNext, onBack }: { currency: stri
           type="button"
           disabled={!ready}
           onClick={() => onNext({ name: name.trim(), target: amountOf(target), monthly: amountOf(monthly), deadline: format(forecast!.date, 'yyyy-MM-dd') })}
-          className="w-full rounded-2xl bg-gray-900 py-3.5 text-[15px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 dark:bg-white dark:text-gray-900"
+          className="w-full rounded-2xl bg-gray-900 py-3.5 text-[15px] font-semibold text-white transition-ui hover:opacity-90 active:scale-[0.98] disabled:opacity-40 dark:bg-white dark:text-gray-900"
         >
           Save this goal and continue
         </button>
@@ -112,7 +112,7 @@ export function GoalStep({ currency, initial, onNext, onBack }: { currency: stri
           <button
             type="button"
             onClick={onBack}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-gray-200 py-3.5 text-[15px] font-semibold text-gray-600 transition-all hover:bg-gray-100 active:scale-[0.98] dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-gray-200 py-3.5 text-[15px] font-semibold text-gray-600 transition-ui hover:bg-gray-100 active:scale-[0.98] dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
             <ChevronLeft className="h-4 w-4" /> Back
           </button>

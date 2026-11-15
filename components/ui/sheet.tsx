@@ -61,7 +61,7 @@ function SheetOverlay({
     <Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-(--dur-sheet) data-[state=open]:ease-(--ease-appear) data-[state=closed]:duration-(--dur-sheet-exit) data-[state=closed]:ease-(--ease-leave)",
         className
       )}
       {...props}
@@ -91,7 +91,7 @@ function SheetContent({
           "bg-background outline-none flex flex-col gap-4",
           isMobile
             ? "fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] rounded-t-2xl border-t border-border shadow-ios-lg safe-bottom"
-            : "fixed inset-y-4 right-4 left-auto z-50 h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[min(48rem,calc(100vw-2rem))] rounded-2xl border border-border shadow-ios-lg data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-right data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right",
+            : "fixed inset-y-4 right-4 left-auto z-50 h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[min(48rem,calc(100vw-2rem))] rounded-2xl border border-border shadow-ios-lg data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-right data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right data-[state=open]:duration-(--dur-sheet) data-[state=open]:ease-(--ease-appear) data-[state=closed]:duration-(--dur-sheet-exit) data-[state=closed]:ease-(--ease-leave)",
           className
         )}
         {...props}

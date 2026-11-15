@@ -17,6 +17,7 @@ import { GroupBadge } from './group-icon'
 import { PlanSheet } from './plan-sheet'
 import { GroupBudgetsSheet } from './group-budgets-sheet'
 import { UnplannedBudgets } from './unplanned-budgets'
+import { fillStyle } from '@/lib/motion'
 
 type BudgetMonth = ReturnType<typeof useBudgetMonth>
 
@@ -26,8 +27,8 @@ function Bar({ pct, color, over, className = 'h-2.5' }: { pct: number; color: st
   return (
     <div className={`w-full overflow-hidden rounded-full bg-secondary ${className}`}>
       <div
-        className={`h-full rounded-full transition-all duration-700 ${over ? 'bg-destructive' : ''}`}
-        style={{ width: `${Math.min(100, Math.max(0, pct))}%`, ...(over ? {} : { backgroundColor: color }) }}
+        className={`fill-bar h-full rounded-full ${over ? 'bg-destructive' : ''}`}
+        style={fillStyle(pct, over ? undefined : { backgroundColor: color })}
       />
     </div>
   )

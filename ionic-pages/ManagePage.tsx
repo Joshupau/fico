@@ -112,7 +112,7 @@ export default function ManagePage() {
                     <Link
                       key={href}
                       to={href}
-                      className="group relative flex flex-col gap-3 rounded-3xl border border-border bg-card p-4 shadow-ios transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-ios-lg focus-visible:outline-2 focus-visible:outline-primary"
+                      className="group relative flex flex-col gap-3 rounded-3xl border border-border bg-card p-4 shadow-ios transition-ui hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-ios-lg focus-visible:outline-2 focus-visible:outline-primary"
                     >
                       <span className="flex items-start justify-between">
                         <span className={`flex size-11 items-center justify-center rounded-2xl ${tone}`}>
