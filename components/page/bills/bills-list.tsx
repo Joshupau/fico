@@ -142,7 +142,7 @@ export function BillsList({
         return (
           <Card
             key={bill.id}
-            className={`py-0 border transition-all duration-200 hover:shadow-ios ${cardTone}`}
+            className={`py-0 border transition-ui hover:shadow-ios ${cardTone}`}
           >
             <CardContent className="p-4 sm:p-5">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

@@ -15,6 +15,7 @@ import { markOnboardingDone } from '@/utils/onboarding'
 import { useCreateGoal } from '@/queries/user/goal/goals'
 import { GoalStep, type GoalDraft } from '@/components/page/onboarding/goal-step'
 import type { CurrencyCode, DateFormat, LandingPage } from '@/types/settings'
+import { fillStyle } from '@/lib/motion'
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ export function OnboardingPage() {
   const progress = step >= 2 && step <= TOTAL_STEPS + 1 ? ((step - 1) / TOTAL_STEPS) * 100 : 0
 
   // Shared card styles
-  const card = 'relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-4 cursor-pointer transition-all duration-200 select-none active:scale-[0.97] text-center'
+  const card = 'relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-4 cursor-pointer transition-ui select-none active:scale-[0.97] text-center'
   const sel  = 'border-gray-900 dark:border-white bg-gray-900/5 dark:bg-white/10'
   const idle = 'border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/60 hover:border-gray-300 dark:hover:border-zinc-600'
 
@@ -102,10 +103,10 @@ export function OnboardingPage() {
       {/* sticky (not a separate overflow-y-auto region) so it stays visible
           while IonContent handles all scrolling natively — nesting our own
           scroll container inside IonContent breaks scroll gestures on iOS. */}
-      <div className="h-1 w-full bg-gray-200 dark:bg-zinc-800 sticky top-0 z-10">
+      <div className="h-1 w-full overflow-hidden bg-gray-200 dark:bg-zinc-800 sticky top-0 z-10">
         <div
-          className="h-full bg-gradient-to-r from-violet-500 via-indigo-500 to-sky-500 transition-all duration-500 ease-out rounded-r-full"
-          style={{ width: `${progress}%` }}
+          className="fill-bar h-full bg-gradient-to-r from-violet-500 via-indigo-500 to-sky-500 rounded-r-full"
+          style={fillStyle(progress)}
         />
       </div>
 
@@ -135,7 +136,7 @@ export function OnboardingPage() {
 
               <button
                 onClick={start}
-                className="mt-9 w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-4 font-semibold text-[16px] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg"
+                className="mt-9 w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-4 font-semibold text-[16px] hover:opacity-90 active:scale-[0.98] transition-ui shadow-lg"
               >
                 Get started
               </button>
@@ -232,7 +233,7 @@ export function OnboardingPage() {
               {/* Compact layout toggle */}
               <button
                 onClick={() => setCompactLayout(!compactLayout)}
-                className={`mt-3 w-full flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer active:scale-[0.98] ${compactLayout ? sel : idle}`}
+                className={`mt-3 w-full flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-ui cursor-pointer active:scale-[0.98] ${compactLayout ? sel : idle}`}
               >
                 <div className="flex items-center gap-3">
                   {compactLayout
@@ -267,7 +268,7 @@ export function OnboardingPage() {
                     <button
                       key={opt.path}
                       onClick={() => setDefaultLandingPage(opt.path)}
-                      className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border-2 transition-all duration-200 active:scale-[0.98] cursor-pointer ${active ? sel : idle}`}
+                      className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border-2 transition-ui active:scale-[0.98] cursor-pointer ${active ? sel : idle}`}
                     >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${active ? 'bg-gray-900 dark:bg-white' : 'bg-gray-100 dark:bg-zinc-700'}`}>
                         <Icon className={`w-5 h-5 ${active ? 'text-white dark:text-gray-900' : 'text-gray-600 dark:text-zinc-300'}`} />
@@ -311,7 +312,7 @@ export function OnboardingPage() {
                       <button
                         key={df.value}
                         onClick={() => setDateFormat(df.value)}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all duration-200 active:scale-[0.98] cursor-pointer ${active ? sel : idle}`}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-ui active:scale-[0.98] cursor-pointer ${active ? sel : idle}`}
                       >
                         <div className="text-left">
                           <p className={`font-semibold text-sm ${active ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-zinc-200'}`}>{df.label}</p>
@@ -336,7 +337,7 @@ export function OnboardingPage() {
                 </p>
                 <button
                   onClick={() => setHideAmountsOnOpen(!hideAmountsOnOpen)}
-                  className={`w-full flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer active:scale-[0.98] ${hideAmountsOnOpen ? sel : idle}`}
+                  className={`w-full flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-ui cursor-pointer active:scale-[0.98] ${hideAmountsOnOpen ? sel : idle}`}
                 >
                   <div className="text-left">
                     <p className={`font-semibold text-sm ${hideAmountsOnOpen ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-zinc-200'}`}>
@@ -397,7 +398,7 @@ export function OnboardingPage() {
 
               <button
                 onClick={finish}
-                className="mt-6 w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-4 font-semibold text-[16px] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg"
+                className="mt-6 w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-4 font-semibold text-[16px] hover:opacity-90 active:scale-[0.98] transition-ui shadow-lg"
               >
                 Go to Fico →
               </button>
@@ -438,14 +439,14 @@ function StepButtons({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       <button
         type="button"
         onClick={onNext}
-        className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-all"
+        className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-ui"
       >
         Continue
       </button>
       <button
         type="button"
         onClick={onBack}
-        className="w-full border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 rounded-2xl py-3.5 font-semibold text-[15px] hover:bg-gray-100 dark:hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+        className="w-full border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 rounded-2xl py-3.5 font-semibold text-[15px] hover:bg-gray-100 dark:hover:bg-zinc-800 active:scale-[0.98] transition-ui flex items-center justify-center gap-1.5"
       >
         <ChevronLeft className="w-4 h-4" /> Back
       </button>
@@ -455,7 +456,7 @@ function StepButtons({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 
 function Toggle({ on }: { on: boolean }) {
   return (
-    <div className={`w-12 h-6 rounded-full flex items-center px-1 transition-all duration-300 flex-shrink-0 ${on ? 'bg-gray-900 dark:bg-white justify-end' : 'bg-gray-200 dark:bg-zinc-700 justify-start'}`}>
+    <div className={`w-12 h-6 rounded-full flex items-center px-1 transition-ui flex-shrink-0 ${on ? 'bg-gray-900 dark:bg-white justify-end' : 'bg-gray-200 dark:bg-zinc-700 justify-start'}`}>
       <div className="w-4 h-4 rounded-full bg-white dark:bg-gray-900 shadow-sm" />
     </div>
   )

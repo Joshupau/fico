@@ -18,6 +18,7 @@ import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import { describePeriod, getPeriodRange, isShiftablePeriod } from '@/queries/user/transaction/period-range'
 import { SliceTransactionsSheet, type Slice } from '@/components/page/statistics/slice-transactions-sheet'
+import { fillStyle } from '@/lib/motion'
 
 type PeriodType = 'today' | 'week' | 'month' | 'year' | 'all'
 
@@ -224,8 +225,8 @@ export function PeriodSummaryCard({ period, walletId, offset = 0 }: ChartProps) 
             </div>
             <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
               <div
-                className="h-full bg-success rounded-full transition-all duration-700"
-                style={{ width: `${incomeRatio}%` }}
+                className="fill-bar h-full bg-success rounded-full"
+                style={fillStyle(incomeRatio)}
               />
             </div>
           </div>
@@ -241,8 +242,8 @@ export function PeriodSummaryCard({ period, walletId, offset = 0 }: ChartProps) 
             </div>
             <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
               <div
-                className="h-full bg-destructive rounded-full transition-all duration-700"
-                style={{ width: `${100 - incomeRatio}%` }}
+                className="fill-bar h-full bg-destructive rounded-full"
+                style={fillStyle(100 - incomeRatio)}
               />
             </div>
           </div>
@@ -253,11 +254,11 @@ export function PeriodSummaryCard({ period, walletId, offset = 0 }: ChartProps) 
               <p className="text-xs text-muted-foreground">Income / Expense ratio</p>
               <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
                 <div
-                  className="bg-success rounded-l-full transition-all duration-700"
+                  className="bg-success rounded-l-full"
                   style={{ width: `${incomeRatio}%` }}
                 />
                 <div
-                  className="bg-destructive rounded-r-full transition-all duration-700"
+                  className="bg-destructive rounded-r-full"
                   style={{ width: `${100 - incomeRatio}%` }}
                 />
               </div>

@@ -11,6 +11,7 @@ import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import { BudgetPeriod } from '@/types/budget'
 import { budgetOverlapsMonth } from '@/utils/budget-month'
+import { fillStyle } from '@/lib/motion'
 
 interface BudgetCategory {
   id: string
@@ -210,7 +211,7 @@ export default function BudgetList({ month, groupId, title = 'Active Goals', bar
           <Button
             size="icon"
             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            className="h-9 w-9 rounded-xl transition-all"
+            className="h-9 w-9 rounded-xl"
             onClick={() => setViewMode('grid')}
           >
             <LayoutGrid className="w-5 h-5" />
@@ -218,7 +219,7 @@ export default function BudgetList({ month, groupId, title = 'Active Goals', bar
           <Button
             size="icon"
             variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            className="h-9 w-9 rounded-xl transition-all"
+            className="h-9 w-9 rounded-xl"
             onClick={() => setViewMode('list')}
           >
             <List className="w-5 h-5" />
@@ -246,7 +247,7 @@ export default function BudgetList({ month, groupId, title = 'Active Goals', bar
                 monthLabel={monthLabel}
               />
             ) : (
-                <div key={b.id} className="p-4 bg-card border border-border rounded-2xl flex items-center justify-between group transition-all hover:border-primary/50">
+                <div key={b.id} className="p-4 bg-card border border-border rounded-2xl flex items-center justify-between group transition-colors duration-(--dur-press) hover:border-primary/50">
                    <div className="flex items-center gap-4">
                         <div 
                             className="w-12 h-12 rounded-xl flex items-center justify-center text-white"
@@ -270,8 +271,8 @@ export default function BudgetList({ month, groupId, title = 'Active Goals', bar
                         </div>
                         <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
                             <div 
-                                className={`h-full rounded-full transition-all ${b.isOverBudget ? 'bg-destructive' : 'bg-primary'}`}
-                                style={{ width: `${Math.min(b.percentageUsed, 100)}%` }}
+                                className={`fill-bar h-full rounded-full ${b.isOverBudget ? 'bg-destructive' : 'bg-primary'}`}
+                                style={fillStyle(b.percentageUsed)}
                              />
                         </div>
                    </div>

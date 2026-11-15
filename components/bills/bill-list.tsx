@@ -103,7 +103,7 @@ export default function BillList() {
       ) : bills.length > 0 ? (
         <div className="space-y-2">
           {bills.map((b) => (
-            <div key={b.id} className="p-4 bg-gradient-to-br from-card to-secondary border border-border rounded-xl flex justify-between items-center hover:shadow-md transition-all duration-300">
+            <div key={b.id} className="p-4 bg-gradient-to-br from-card to-secondary border border-border rounded-xl flex justify-between items-center hover:shadow-md transition-ui">
               <div>
                 <div className="font-medium">{b.name}</div>
                 <div className="text-sm text-muted-foreground">Due {b.dueDate}</div>

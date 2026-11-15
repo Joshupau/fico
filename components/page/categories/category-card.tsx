@@ -95,7 +95,7 @@ export function CategoryCard({
 
   return (
     <div
-      className={`group relative bg-gradient-to-br from-card to-secondary border border-border rounded-2xl p-5 shadow-ios hover:shadow-ios-lg transition-all duration-300 overflow-hidden ${
+      className={`group relative bg-gradient-to-br from-card to-secondary border border-border rounded-2xl p-5 shadow-ios hover:shadow-ios-lg transition-ui overflow-hidden ${
         isArchived ? 'opacity-70' : ''
       }`}
       style={{

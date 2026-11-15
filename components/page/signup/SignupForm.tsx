@@ -122,7 +122,7 @@ export function SignupForm() {
     'Strong'
 
   const inputBase =
-    'w-full bg-white dark:bg-zinc-800/70 border border-gray-200 dark:border-zinc-700 rounded-2xl px-4 py-3.5 text-[15px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:border-transparent transition-all'
+    'w-full bg-white dark:bg-zinc-800/70 border border-gray-200 dark:border-zinc-700 rounded-2xl px-4 py-3.5 text-[15px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:border-transparent transition-ui'
 
   const errorClass = 'text-xs text-red-500 mt-1.5 pl-1'
 
@@ -156,7 +156,7 @@ export function SignupForm() {
           return (
             <div
               key={step}
-              className={`h-[6px] rounded-full transition-all duration-300 ${
+              className={`h-[6px] rounded-full transition-ui ${
                 isDone ? 'bg-emerald-500 w-6' :
                 isActive ? 'bg-gray-900 dark:bg-white w-6' :
                 'bg-gray-200 dark:bg-zinc-700 w-[6px]'
@@ -223,7 +223,7 @@ export function SignupForm() {
                     {[1, 2, 3, 4, 5].map(i => (
                       <div
                         key={i}
-                        className={`h-1 flex-1 rounded-full transition-all duration-300 ${i <= passwordStrength ? strengthColor : 'bg-gray-200 dark:bg-zinc-700'}`}
+                        className={`h-1 flex-1 rounded-full transition-ui ${i <= passwordStrength ? strengthColor : 'bg-gray-200 dark:bg-zinc-700'}`}
                       />
                     ))}
                   </div>
@@ -365,7 +365,7 @@ export function SignupForm() {
               type="button"
               onClick={handleNext}
               disabled={isSaving}
-              className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
+              className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-ui disabled:opacity-40"
             >
               Continue
             </button>
@@ -374,7 +374,7 @@ export function SignupForm() {
               type="button"
               onClick={() => void handleSubmit(onSubmit)()}
               disabled={isSaving}
-              className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
+              className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-ui disabled:opacity-40"
             >
               {isSaving ? 'Creating account…' : 'Create account'}
             </button>
@@ -385,7 +385,7 @@ export function SignupForm() {
               type="button"
               onClick={handlePrev}
               disabled={isSaving}
-              className="w-full border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 rounded-2xl py-3.5 font-semibold text-[15px] hover:bg-gray-50 dark:hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              className="w-full border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 rounded-2xl py-3.5 font-semibold text-[15px] hover:bg-gray-50 dark:hover:bg-zinc-800 active:scale-[0.98] transition-ui flex items-center justify-center gap-1.5"
             >
               <ChevronLeft className="w-4 h-4" />
               Back

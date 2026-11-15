@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import DevOverlayClient from '@/components/DevOverlayClient'
-import InitialLoader from '@/components/InitialLoader'
+import LaunchSplash from '@/components/launch-splash'
 import DevDomGuard from '@/components/DevDomGuard'
 
 import './ionic-theme.css'
@@ -110,7 +110,7 @@ export default function RootLayout({
             <Agentation />
           </>
         )}
-        <InitialLoader />
+        <LaunchSplash />
         {children}
       </body>
       {/* <Script type="module" src="https://unpkg.com/ionicons@7.0.0/dist/ionicons/ionicons.esm.js" strategy="lazyOnload" /> */}

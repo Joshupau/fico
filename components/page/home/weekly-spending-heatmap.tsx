@@ -121,7 +121,7 @@ export function WeeklySpendingHeatmap({ money }: { money: (n: number) => string 
               onClick={() => setSelected(isSelected ? null : key)}
               aria-label={`${format(day, 'EEEE, MMM d')}: ${money(amount)}`}
               aria-pressed={isSelected}
-              className={`aspect-square rounded-lg transition-transform active:scale-95 ${SHADES[shadeFor(amount)]} ${
+              className={`aspect-square rounded-lg transition-transform duration-(--dur-press) ease-[ease] active:scale-[0.96] ${SHADES[shadeFor(amount)]} ${
                 isSelected ? 'ring-2 ring-foreground ring-offset-2 ring-offset-card' : isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-card' : ''
               }`}
             />

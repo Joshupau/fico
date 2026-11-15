@@ -133,7 +133,7 @@ export default function DNavbar() {
                     to={item.href}
                     aria-current={active ? 'page' : undefined}
                     title={item.label}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold uppercase tracking-wide transition-all duration-200 ${
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold uppercase tracking-wide transition-ui ${
                       active
                         ? 'bg-primary text-white shadow-sm'
                         : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
@@ -167,7 +167,7 @@ export default function DNavbar() {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu((v) => !v)}
-                  className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-primary-foreground font-semibold hover:shadow-md transition-all text-sm"
+                  className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-primary-foreground font-semibold hover:shadow-md transition-ui text-sm"
                   title="User menu"
                 >
                   <UserAvatar user={user} className="size-9 text-sm" />
