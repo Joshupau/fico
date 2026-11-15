@@ -47,6 +47,8 @@ export function TransactionImportModal({ open, onClose, onSuccess }: Transaction
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // A new file starts a new import: clear the last import's success or error message.
+    reset();
     setCheck(null);
     setDecisions({});
     if (e.target.files && e.target.files[0]) {
@@ -73,6 +75,8 @@ export function TransactionImportModal({ open, onClose, onSuccess }: Transaction
       onSuccess: () => {
         setLoading(false);
         clear();
+        // The sheet closes on success; clear the result so it doesn't greet the next import.
+        reset();
         if (onSuccess) onSuccess();
         onClose();
       },
