@@ -37,6 +37,18 @@
   --shadow-ios: 0 8px 30px -6px rgb(15 20 25 / 0.10), 0 2px 8px -2px rgb(15 20 25 / 0.06);
   --shadow-ios-lg: 0 20px 50px -12px rgb(15 20 25 / 0.18), 0 8px 20px -6px rgb(15 20 25 / 0.10);
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Motion tokens (joshua-design §7). Components use these instead of bare durations and curves.
+     Exits are ~25% shorter than entrances. */
+  --dur-press: 140ms;      /* press, hover, colour */
+  --dur-pop: 200ms;        /* dropdown, popover, select */
+  --dur-pop-exit: 150ms;
+  --dur-sheet: 280ms;      /* modal, side sheet, toast */
+  --dur-sheet-exit: 210ms;
+  --dur-move: 260ms;       /* moving or resizing in place: progress bars, toggles */
+  --ease-appear: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-leave: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
   --bottom-nav-h: calc(4.75rem + max(0.5rem, env(safe-area-inset-bottom)));
 }
 
@@ -113,6 +125,9 @@
   --shadow-ios: var(--shadow-ios);
   --shadow-ios-lg: var(--shadow-ios-lg);
   --ease-spring: var(--ease-spring);
+  --ease-appear: var(--ease-appear);
+  --ease-leave: var(--ease-leave);
+  --ease-move: var(--ease-move);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -138,11 +153,42 @@
   }
 }
 
-/* Override animation duration */
-@media (prefers-reduced-motion: no-preference) {
-  * {
-    animation-duration: 300ms;
+/* Reduced motion: every animation and transition off, with the same end states. Spinners and
+   progress keep moving so a load never looks like a hang (joshua-design §7.6). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+  [data-keep-motion],
+  [data-keep-motion] * {
+    transition-duration: var(--dur-move) !important;
+  }
+}
+
+/* The usual UI transition: colour, shadow, opacity and transform only (never `transition: all`). */
+@utility transition-ui {
+  transition-property: color, background-color, border-color, outline-color, box-shadow, opacity, transform;
+  transition-timing-function: ease;
+  transition-duration: var(--dur-press);
+}
+
+/* A bar that grows: animate a transform, never width. Set --fill (0-1) on the element. */
+.fill-bar {
+  width: 100%;
+  transform-origin: left center;
+  transform: translateX(calc((var(--fill, 0) - 1) * 100%));
+  transition: transform var(--dur-move) var(--ease-move);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -340,7 +386,7 @@ html.theme-instant *::after {
   background: transparent; /* Empty state: transparent */
   border-radius: 8px;
   flex: 1;
-  transition: all 0.2s ease;
+  transition: background-color var(--dur-press) ease;
 }
 
 /* Texture for days WITH content or being Today */
@@ -559,7 +605,7 @@ html.theme-instant *::after {
   font-size: 12px;
   border-radius: 8px;
   padding: 4px 10px;
-  transition: all 180ms ease;
+  transition: background-color var(--dur-press) ease, border-color var(--dur-press) ease;
 }
 
 .bill-toolbar-icon-btn {
@@ -657,3 +703,61 @@ html.theme-instant *::after {
   0% { opacity: 0.9; transform: scale(0.7); }
   100% { opacity: 0; transform: scale(1.7); }
 }
+
+/* ── Launch splash (components/launch-splash.tsx) ───────────────────────────────────────────────
+   A rare, once-per-open moment, so it may be choreographed (joshua-design §7.1). The storyboard
+   lives in the component; delays below follow it. */
+.fico-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: var(--background);
+  transition: opacity var(--dur-sheet-exit) var(--ease-leave);
+}
+.fico-splash.fs-leaving { opacity: 0; pointer-events: none; }
+.fico-splash.fs-leaving .fs-stage {
+  transform: scale(1.04);
+  transition: transform var(--dur-sheet-exit) var(--ease-leave);
+}
+.fs-stage { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.fs-logo {
+  width: 112px;
+  height: 112px;
+  border-radius: 26px;
+  box-shadow: var(--shadow-ios-lg);
+}
+.fs-word {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+.fs-head, .fs-crest, .fs-eyes { transform-box: view-box; }
+/* Feathers and coin sit inside translated groups, so they pivot on their own box. */
+.fs-plume, .fs-coin { transform-box: fill-box; }
+.fs-plume { transform-origin: 50% 100%; transform: rotate(var(--a)) scale(var(--s)); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .fs-logo { animation: fs-tile 380ms var(--ease-appear) both; }
+  .fs-plume { animation: fs-fan 420ms var(--ease-appear) calc(140ms + var(--i) * 30ms) both; }
+  .fs-head { transform-origin: 256px 476px; animation: fs-rise 380ms var(--ease-appear) 220ms both; }
+  .fs-crest { transform-origin: 256px 300px; animation: fs-pop 260ms var(--ease-appear) 420ms both; }
+  .fs-eyes { transform-origin: 256px 380px; animation: fs-blink 200ms ease-in-out 980ms; }
+  .fs-coin { transform-origin: 50% 50%; animation: fs-coin 460ms var(--ease-appear) 560ms both; }
+  .fs-word { animation: fs-word 300ms var(--ease-appear) 520ms both; }
+}
+
+@keyframes fs-tile { from { opacity: 0; transform: scale(0.82); } }
+@keyframes fs-fan { from { transform: rotate(0deg) scale(calc(var(--s) * 0.5)); opacity: 0; } }
+@keyframes fs-rise { from { transform: translateY(44px) scale(0.92); opacity: 0; } }
+@keyframes fs-pop { from { transform: scale(0.4); opacity: 0; } }
+@keyframes fs-blink { 50% { transform: scaleY(0.12); } }
+@keyframes fs-coin {
+  0% { transform: translateY(-150px) rotate(-60deg); opacity: 0; }
+  70% { transform: translateY(6px) rotate(4deg); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes fs-word { from { opacity: 0; transform: translateY(8px); } }

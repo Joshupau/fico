@@ -14,6 +14,7 @@ import { AppBadge } from '@/components/app-badge';
 import { useIsAuthenticated, useAuthLoading, useUser } from '@/store/auth-store';
 import { Capacitor } from '@capacitor/core';
 import { logAppActivity } from '@/queries/user/admin';
+import { signalAppReady } from '@/lib/motion';
 
 import SignInPage from '@/ionic-pages/SignInPage';
 import SignUpPage from '@/ionic-pages/SignUpPage';
@@ -94,6 +95,14 @@ function AppShellInner() {
   const isAuthenticated = useIsAuthenticated();
   const isAuthLoading = useAuthLoading();
   const userId = useUser()?._id;
+
+  // The launch splash leaves once we know which screen to show (after the session check), on the
+  // frame after that screen has rendered.
+  useEffect(() => {
+    if (isAuthLoading) return;
+    const id = requestAnimationFrame(() => signalAppReady());
+    return () => cancelAnimationFrame(id);
+  }, [isAuthLoading]);
 
   // One traffic ping per app open (and per account switch).
   useEffect(() => {

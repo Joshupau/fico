@@ -30,7 +30,7 @@ export default function BudgetsPage() {
   
   return (
     <IonPage>
-      <IonContent className="bg-background text-foreground transition-all duration-300">
+      <IonContent className="bg-background text-foreground">
         <main className="mx-auto max-w-5xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
           <BudgetsHeader 
             onAddBudget={() => (plansOn ? setNewPlanRequest((n) => n + 1) : setIsModalOpen(true))}

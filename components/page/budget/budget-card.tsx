@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
+import { fillStyle } from '@/lib/motion'
 
 interface BudgetCardProps {
   id: string
@@ -118,7 +119,7 @@ export function BudgetCard({
       </div>
 
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
-        <div className={`h-full rounded-full transition-all duration-700 ${getProgressColor()}`} style={{ width: `${Math.min(percentageUsed, 100)}%` }} />
+        <div className={`fill-bar h-full rounded-full ${getProgressColor()}`} style={fillStyle(percentageUsed)} />
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2 text-xs">
         <span className="tabular-nums text-muted-foreground">

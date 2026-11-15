@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import type { SavingsSummary } from '@/utils/budget-plans'
+import { fillStyle } from '@/lib/motion'
 
 interface SavingsCardProps {
   summary: SavingsSummary
@@ -67,7 +68,7 @@ export function SavingsCard({ summary, monthLabel, isPastMonth, hasSavingsWallet
           {canSave > 0 && hasSavingsWallets && (
             <div className="space-y-1.5">
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-                <div className="h-full rounded-full bg-success transition-all duration-700" style={{ width: `${savedPct}%` }} />
+                <div className="fill-bar h-full rounded-full bg-success" style={fillStyle(savedPct)} />
               </div>
               <p className="text-xs font-medium text-muted-foreground">
                 {money(Math.max(0, savedSoFar))} moved to savings ({savedPct.toFixed(0)}%)

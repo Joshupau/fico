@@ -20,6 +20,7 @@ import { useInvestmentSummary, useListInvestments } from '@/queries/user/investm
 import { useLiveHoldings } from '@/queries/crypto/prices'
 import { PortfolioCard } from '@/components/page/statistics/portfolio-card'
 import { useListPlannedItems } from '@/queries/user/planned/planned-items'
+import { isPlanOpen } from '@/types/planned-item'
 import { useSettingsStore } from '@/store/settings-store'
 import { startOfMonth } from '@/utils/budget-month'
 import { formatMoney } from '@/utils/formatter'
@@ -225,7 +226,7 @@ export function PlansOverview() {
   // Planned one-offs still ahead.
   const { data: plannedData, isLoading: plannedLoading } = useListPlannedItems()
   const planned = useMemo(() => {
-    const ahead = (plannedData ?? []).filter((i) => i.date >= today)
+    const ahead = (plannedData ?? []).filter((i) => i.date >= today && isPlanOpen(i))
     const sum = (type: 'income' | 'expense', key: 'amountLow' | 'amountHigh') => ahead.filter((i) => i.type === type).reduce((s, i) => s + i[key], 0)
     const income = sum('income', 'amountLow')
     const expenses = sum('expense', 'amountHigh')

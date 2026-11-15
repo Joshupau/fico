@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { format, differenceInCalendarDays, parseISO } from 'date-fns'
-import { ArrowDownLeft, ArrowUpRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, CheckCircle2, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { useUpdatePlannedItem } from '@/queries/user/planned/planned-items'
 import { useSettingsStore } from '@/store/settings-store'
 import { formatMoney } from '@/utils/formatter'
 import type { PlannedItem } from '@/types/planned-item'
@@ -23,6 +25,15 @@ export function PlannedItemCard({ item, hideAmounts, onEdit, onDelete }: Planned
   const [menu, setMenu] = useState(false)
   const isIncome = item.type === 'income'
   const confirmed = item.status === 'confirmed'
+  const done = item.status === 'done'
+  const doneLabel = isIncome ? 'Received' : 'Paid'
+  const { mutate: update } = useUpdatePlannedItem()
+  // Already paid (a ticket bought early) or received: it stops counting in safe to spend and forecasts.
+  const markDone = () => {
+    setMenu(false)
+    const { id, name, type, amountLow, amountHigh, date, categoryId, notes } = item
+    update({ id, name, type, amountLow, amountHigh, date, categoryId, notes, status: 'done' }, { onSuccess: () => toast.success(`Marked ${doneLabel.toLowerCase()}`) })
+  }
 
   const date = parseISO(item.date)
   const days = differenceInCalendarDays(date, new Date())
@@ -32,7 +43,7 @@ export function PlannedItemCard({ item, hideAmounts, onEdit, onDelete }: Planned
   const accent = isIncome ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
 
   return (
-    <article className={`min-w-0 rounded-3xl border border-border bg-card p-4 shadow-ios ${passed ? 'opacity-70' : ''}`}>
+    <article className={`min-w-0 rounded-3xl border border-border bg-card p-4 shadow-ios ${passed || done ? 'opacity-70' : ''}`}>
       <div className="flex items-start gap-3">
         <span className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${accent}`}>
           {isIncome ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
@@ -44,8 +55,8 @@ export function PlannedItemCard({ item, hideAmounts, onEdit, onDelete }: Planned
             {item.category?.name ? ` · ${item.category.name}` : ''}
           </p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${confirmed ? 'bg-success/15 text-success' : 'bg-secondary text-muted-foreground'}`}>
-          {confirmed ? 'Confirmed' : 'Expected'}
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${confirmed || done ? 'bg-success/15 text-success' : 'bg-secondary text-muted-foreground'}`}>
+          {done ? doneLabel : confirmed ? 'Confirmed' : 'Expected'}
         </span>
         <div className="relative -mr-1">
           <button type="button" onClick={() => setMenu((v) => !v)} aria-label={`${item.name} actions`} className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary">
@@ -59,6 +70,12 @@ export function PlannedItemCard({ item, hideAmounts, onEdit, onDelete }: Planned
                   <Pencil className="h-4 w-4" />
                   Edit
                 </button>
+                {!done && (
+                  <button type="button" onClick={markDone} className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm hover:bg-secondary">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Mark {doneLabel.toLowerCase()}
+                  </button>
+                )}
                 <button type="button" onClick={() => { setMenu(false); onDelete(item) }} className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-destructive hover:bg-secondary">
                   <Trash2 className="h-4 w-4" />
                   Delete

@@ -76,7 +76,7 @@ export function SigninForm() {
   }
 
   const inputBase =
-    'w-full bg-white dark:bg-zinc-800/70 border border-gray-200 dark:border-zinc-700 rounded-2xl px-4 py-3.5 text-[15px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:border-transparent transition-all'
+    'w-full bg-white dark:bg-zinc-800/70 border border-gray-200 dark:border-zinc-700 rounded-2xl px-4 py-3.5 text-[15px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:border-transparent transition-ui'
 
   return (
     <div className="w-full max-w-sm mx-auto">
@@ -151,7 +151,7 @@ export function SigninForm() {
         <button
           type="submit"
           disabled={isPending || !usernameVal || !passwordVal}
-          className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
+          className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl py-3.5 font-semibold text-[15px] hover:opacity-90 active:scale-[0.98] transition-ui disabled:opacity-40"
         >
           {isPending ? 'Signing in…' : 'Continue'}
         </button>

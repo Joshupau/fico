@@ -102,7 +102,7 @@ export function TransactionImportModal({ open, onClose, onSuccess }: Transaction
               name="walletId"
               value={walletId}
               onChange={(e) => setWalletId(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-xl bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+              className="w-full px-3 py-2 border border-border rounded-xl bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-ui"
             >
               <option value="">Select a wallet</option>
               {wallets.map((wallet: any) => (

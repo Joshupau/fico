@@ -582,11 +582,14 @@ export function FloatingAgent() {
 
         {/* ── Panel ── */}
         <div
-          className={`absolute ${panelLayout.up ? 'bottom-[4.75rem] origin-bottom-right' : 'top-[4.75rem] origin-top-right'} transition-all duration-300 ease-out ${
-            isOpen ? 'pointer-events-auto scale-100 opacity-100' : 'pointer-events-none scale-90 opacity-0'
+          className={`absolute ${panelLayout.up ? 'bottom-[4.75rem] origin-bottom-right' : 'top-[4.75rem] origin-top-right'} transition-[transform,opacity] ${
+            isOpen
+              ? 'pointer-events-auto scale-100 opacity-100 duration-(--dur-sheet) ease-(--ease-appear)'
+              : 'pointer-events-none scale-[0.96] opacity-0 duration-(--dur-sheet-exit) ease-(--ease-leave)'
           }`}
           style={{ right: `${-panelLayout.shift}px` }}
           aria-hidden={!isOpen}
+          inert={!isOpen}
         >
           <div
             role="dialog"
@@ -798,7 +801,7 @@ export function FloatingAgent() {
           onPointerCancel={endDrag}
           aria-label={isOpen ? 'Close Fico' : 'Open Fico'}
           aria-expanded={isOpen}
-          className={`relative flex h-16 w-16 touch-none select-none items-center justify-center rounded-full bg-card shadow-ios-lg ring-2 ring-primary/40 transition-all duration-300 hover:ring-primary ${
+          className={`relative flex h-16 w-16 touch-none select-none items-center justify-center rounded-full bg-card shadow-ios-lg ring-2 ring-primary/40 transition-[transform,box-shadow] duration-(--dur-press) ease-[ease] hover:ring-primary active:scale-[0.96] ${
             isOpen ? 'scale-95' : 'scale-100'
           }`}
         >

@@ -112,7 +112,7 @@ export function TransactionInlineEditor({ transaction, onSave, onCancel, isSavin
           value={draft.description}
           onChange={(event) => setDraft((prev) => ({ ...prev, description: event.target.value }))}
           rows={3}
-          className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground outline-none transition-all focus:ring-2 focus:ring-primary resize-none"
+          className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground outline-none transition-ui focus:ring-2 focus:ring-primary resize-none"
         />
       </div>
 

@@ -17,6 +17,7 @@ import {
 } from '@/lib/ph-institutions'
 import { estimateYearlyInterest, PAYOUT_OPTIONS, SAVINGS_PRESETS, type SavingsPreset } from '@/lib/savings-presets'
 import { CreateWalletData, InterestPayout, UpdateWalletData, WalletType } from '@/types/wallet'
+import { fillStyle } from '@/lib/motion'
 
 interface CreateWalletModalProps {
   open: boolean
@@ -291,7 +292,7 @@ export function CreateWalletModal({ open, onClose, onSuccess, wallet }: CreateWa
               )}
               {isCard && (
                 <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-white/25" aria-hidden="true">
-                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${usedPct}%` }} />
+                  <div className="fill-bar h-full rounded-full bg-white" style={fillStyle(usedPct)} />
                 </div>
               )}
             </div>

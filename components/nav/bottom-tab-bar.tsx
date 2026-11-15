@@ -17,18 +17,19 @@ function Tab({ item, pathname }: { item: NavItem; pathname: string }) {
       to={item.href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'relative flex flex-1 flex-col items-center justify-center gap-0.5 pt-2 pb-1 text-[11px] font-medium transition-colors',
+        'group relative flex flex-1 flex-col items-center justify-center gap-0.5 pt-2 pb-1 text-[11px] font-medium',
         active ? 'text-primary' : 'text-muted-foreground'
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          'absolute top-0 h-0.5 w-8 rounded-full bg-primary transition-opacity',
+          'absolute top-0 h-0.5 w-8 rounded-full bg-primary',
           active ? 'opacity-100' : 'opacity-0'
         )}
       />
-      <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+      {/* Tabs switch many times a session, so the new tab shows at once; only the press is animated. */}
+      <Icon className="h-5 w-5 transition-transform duration-(--dur-press) ease-[ease] group-active:scale-[0.95]" strokeWidth={active ? 2.4 : 2} />
       <span>{item.label}</span>
     </Link>
   )
@@ -55,7 +56,7 @@ export function BottomTabBar({ onAdd }: BottomTabBarProps) {
             type="button"
             onClick={onAdd}
             aria-label="Add transaction"
-            className="absolute -top-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-ios-lg transition-transform active:scale-95"
+            className="absolute -top-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-ios-lg transition-transform duration-(--dur-press) ease-[ease] active:scale-[0.96]"
           >
             <Plus className="h-6 w-6" strokeWidth={2.5} />
           </button>

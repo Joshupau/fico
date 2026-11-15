@@ -5,6 +5,7 @@ import { Flag } from 'lucide-react'
 import { useSubjectMilestones } from '@/queries/user/milestone/milestones'
 import type { MilestoneKind } from '@/utils/milestones'
 import { cn } from '@/lib/utils'
+import { fillStyle } from '@/lib/motion'
 
 const TICKS = [25, 50, 75]
 
@@ -14,7 +15,7 @@ export function TickedProgress({ pct, done, label, tone = 'primary' }: { pct: nu
   return (
     <div className="relative mt-2" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <div className="h-2 overflow-hidden rounded-full bg-secondary">
-        <div className={cn('h-full rounded-full transition-all', fill)} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+        <div className={cn('fill-bar h-full rounded-full', fill)} style={fillStyle(pct)} />
       </div>
       {TICKS.map((t) => (
         <span

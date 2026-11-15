@@ -32,8 +32,8 @@ function ToastCard({ t }: { t: Toast }) {
       className={cn(
         'pointer-events-auto flex w-[min(92vw,24rem)] cursor-pointer select-none items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3 text-foreground shadow-ios-lg',
         t.visible
-          ? 'animate-in fade-in slide-in-from-top-4 duration-300'
-          : 'animate-out fade-out slide-out-to-top-4 duration-200 fill-mode-forwards'
+          ? 'animate-in fade-in slide-in-from-top-4 duration-(--dur-sheet) ease-(--ease-appear)'
+          : 'animate-out fade-out slide-out-to-top-2 duration-(--dur-sheet-exit) ease-(--ease-leave) fill-mode-forwards'
       )}
     >
       <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-full', TONES[t.type] ?? TONES.blank)}>

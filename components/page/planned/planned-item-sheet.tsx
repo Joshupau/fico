@@ -17,9 +17,10 @@ interface PlannedItemSheetProps {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-const STATUSES: { value: PlannedItemStatus; label: string }[] = [
+const STATUSES: { value: PlannedItemStatus; label: string; income?: string }[] = [
   { value: 'expected', label: 'Expected' },
   { value: 'confirmed', label: 'Confirmed' },
+  { value: 'done', label: 'Paid', income: 'Received' },
 ]
 
 export function PlannedItemSheet({ open, onClose, item, initialType = 'income' }: PlannedItemSheetProps) {
@@ -136,7 +137,7 @@ export function PlannedItemSheet({ open, onClose, item, initialType = 'income' }
           <div className={scrollRowClass} role="group" aria-label="Status">
             {STATUSES.map((s) => (
               <button key={s.value} type="button" aria-pressed={status === s.value} onClick={() => setStatus(s.value)} className={chipClass(status === s.value)}>
-                {s.label}
+                {isIncome ? s.income ?? s.label : s.label}
               </button>
             ))}
           </div>

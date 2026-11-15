@@ -24,7 +24,7 @@ export function GoogleButton({ onClick, label = 'Continue with Google', disabled
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full bg-white dark:bg-zinc-800/70 border border-gray-200 dark:border-zinc-700 rounded-2xl py-3.5 font-semibold text-[14px] text-gray-800 dark:text-white flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
+      className="w-full bg-white dark:bg-zinc-800/70 border border-gray-200 dark:border-zinc-700 rounded-2xl py-3.5 font-semibold text-[14px] text-gray-800 dark:text-white flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-zinc-800 active:scale-[0.98] transition-ui disabled:opacity-50"
     >
       <GoogleIcon />
       {label}

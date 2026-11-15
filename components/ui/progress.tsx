@@ -25,7 +25,7 @@ function Progress({
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
         className={cn(
-          "h-full w-full flex-1 transition-all duration-500 ease-in-out",
+          "h-full w-full flex-1 transition-transform duration-(--dur-move) ease-(--ease-move)",
           {
             "bg-primary": variant === "default",
             "bg-success": variant === "success",
