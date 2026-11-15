@@ -48,7 +48,10 @@ const resolveUsernameToEmail = async (username: string): Promise<string> => {
 };
 
 const loginUserSupabase = async (username: string, password: string) => {
-  const email = await resolveUsernameToEmail(username);
+  // The field accepts either. Usernames never contain "@" (OAuth sign-ups use the part before it),
+  // so anything with one is an email and goes straight to Supabase.
+  const identifier = username.trim();
+  const email = identifier.includes('@') ? identifier.toLowerCase() : await resolveUsernameToEmail(identifier);
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
   return { message: 'success', data: { auth: { auth: 'player', username, userid: data.user?.id } } };
