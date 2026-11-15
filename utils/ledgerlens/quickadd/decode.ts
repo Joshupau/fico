@@ -22,6 +22,8 @@ export interface QuickAddResult {
   confidence: { amount: number; type: number; wallet: number; category: number }
   /** Why each field was chosen, for the review UI and the eval misses list. */
   evidence: string[]
+  /** The words in the message that were read as the wallet(s), so a description can leave them out. */
+  walletWords?: string[]
 }
 
 /** "1,250.50" / "1.2k" / "₱300" / "2.5K" -> number, or null. Integer centavos under the hood. */
@@ -160,11 +162,13 @@ export function decode(tagged: Tagged, ctx: QuickAddContext): QuickAddResult {
   const to = toSpans.map((s) => matchWallet(s.text, ctx.wallets)).find(Boolean)
   if (from) {
     result.fromWalletName = from.name
+    result.walletWords = [...(result.walletWords ?? []), ...(walletSpans[0]?.tokens.map((t) => t.text) ?? [])]
     result.confidence.wallet = from.score
     evidence.push(`wallet "${walletSpans[0]?.text}" -> ${from.name} (${from.score.toFixed(2)})`)
   }
   if (to) {
     result.toWalletName = to.name
+    result.walletWords = [...(result.walletWords ?? []), ...(toSpans[0]?.tokens.map((t) => t.text) ?? [])]
     evidence.push(`to wallet "${toSpans[0]?.text}" -> ${to.name}`)
   }
 

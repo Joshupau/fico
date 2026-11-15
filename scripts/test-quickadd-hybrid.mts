@@ -25,6 +25,15 @@ for (const text of ['lunch 150 gcash', 'sahod 30000 bdo', 'gcash to gotyme 2000'
 // Where the rules come up empty, the tagger fills in and says so.
 const glued = await parseQuickAdd('dinner320', context)
 check('glued amount is found', glued.amount === 320 && (glued.evidence?.length ?? 0) > 0, glued)
+// The agent only accepts an amount with confidence >= 0.5 (components/floating-agent.tsx). Check that gate, not just the number.
+for (const text of ['lunch150', 'Lunch150', 'dinner320']) {
+  const r = await parseQuickAdd(text, context)
+  check(`"${text}" passes the agent's amount gate`, !!r.amount && r.confidence.amount >= 0.5, r)
+}
+const lunch = await parseQuickAdd('lunch150', context)
+check('glued digits leave the description', lunch.description?.toLowerCase() === 'lunch', lunch.description)
+const grab = await parseQuickAdd('grab 305 gcas', context)
+check('wallet typo leaves the description', grab.fromWalletName === 'GCash' && !/gcas/i.test(grab.description ?? ''), grab.description)
 const typo = await parseQuickAdd('jeep 13 gcas', context)
 check('misspelt wallet is matched', typo.fromWalletName === 'GCash', typo)
 const cat = await parseQuickAdd('grocries 1800', context)
