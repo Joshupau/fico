@@ -9,7 +9,8 @@ import { useListWallets } from '@/queries/user/wallet/wallets'
 import { useListCategories } from '@/queries/user/category/categories'
 import { X, Send, Camera, CheckCircle2, ChevronDown, ArrowDownLeft, ArrowUpRight, Shuffle } from 'lucide-react'
 import { CreateTransactionModal } from '@/components/page/transaction/create-transaction-modal'
-import { matchCategory, matchWallet, parseReceiptText, parseTransactionText, type ParseContext, type ParsedTransaction } from '@/utils/transaction-parser'
+import { matchCategory, matchWallet, parseReceiptText, type ParseContext, type ParsedTransaction } from '@/utils/transaction-parser'
+import { parseQuickAdd, warmQuickAdd } from '@/utils/quickadd-hybrid'
 import { useActiveRules } from '@/queries/user/rule/rules'
 import { applyRules } from '@/utils/rules'
 import { looksLikeMoneyMessage, parseNotification, rememberLoggedReference, wasReferenceLogged } from '@/utils/notification-parser'
@@ -241,6 +242,11 @@ export function FloatingAgent() {
   useEffect(() => {
     layoutPanel()
   }, [layoutPanel, offset, isOpen, isHidden])
+
+  // Load the quick-add tagger when the agent opens, so the first message does not wait for it.
+  useEffect(() => {
+    if (isOpen) warmQuickAdd()
+  }, [isOpen])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const suggestions = useMemo(() => {
@@ -362,7 +368,8 @@ export function FloatingAgent() {
     }
 
     pendingReference.current = undefined
-    const parsed = parseTransactionText(text, parseContext)
+    // Rules first; the on-device tagger fills what the rules leave empty (utils/quickadd-hybrid.ts).
+    const parsed = await parseQuickAdd(text, parseContext)
 
     if (!parsed.amount || parsed.confidence.amount < 0.5) {
       const what = parsed.description ? ` for "${parsed.description}"` : ''
